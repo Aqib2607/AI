@@ -166,6 +166,17 @@ def run_downloader(
     manifest_file = os.path.join(target_dir, "download_manifest.json")
     
     files = get_repo_file_manifest(repo_id, token, revision)
+    
+    # Pre-download storage capacity check
+    if not verify_only:
+        try:
+            _, _, free_bytes = shutil.disk_usage(target_dir)
+            free_gb = free_bytes / (1024 ** 3)
+            if free_gb < 10.0 and console:
+                console.print(f"[bold yellow]! Warning: Low available storage in target directory ({free_gb:.2f} GiB available)[/bold yellow]")
+        except Exception:
+            pass
+
     results = {
         "repo_id": repo_id,
         "target_dir": os.path.abspath(target_dir),

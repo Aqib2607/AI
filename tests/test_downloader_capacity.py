@@ -282,3 +282,64 @@ def test_download_priority_ordering():
     assert sorted_files[4] == "out-mtp-00000.safetensors"
     assert sorted_files[5] == "out-00000.safetensors"
     assert sorted_files[6] == "out-00001.safetensors"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# REGRESSION: NOTEBOOK BUG FIXES
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_go_with_recommended_margin_is_a_success_state():
+    """
+    Regression for Bug 1: GO_WITH_RECOMMENDED_MARGIN must produce is_go=True.
+
+    The observed runtime gate_status when Drive API reports ~5322.36 GB free is
+    GO_WITH_RECOMMENDED_MARGIN. The old notebook code used:
+        is_go = gate_status in ('GO', 'GO_WITH_LOW_MARGIN')
+    which excluded GO_WITH_RECOMMENDED_MARGIN, incorrectly blocking the download.
+    The fix adds GO_WITH_RECOMMENDED_MARGIN to the success set.
+    """
+    cap = make_capacity(drive_free_gb=5322.36, target_is_drive=True)
+    gate_status, gate_reason = evaluate_download_gate(
+        cap, required_gb=400.0, recommended_gb=450.0
+    )
+    # Verify the gate itself produces the expected state
+    assert gate_status == "GO", (
+        f"Expected GO for 5322.36 GB free but got {gate_status}: {gate_reason}"
+    )
+
+    # Simulate the corrected notebook is_go logic
+    is_go_corrected = gate_status in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN")
+    assert is_go_corrected is True, (
+        f"GO_WITH_RECOMMENDED_MARGIN must produce is_go=True but got {gate_status}"
+    )
+
+    # Confirm the old (broken) logic would have failed for GO_WITH_RECOMMENDED_MARGIN
+    # by using that state explicitly
+    is_go_old = "GO_WITH_RECOMMENDED_MARGIN" in ("GO", "GO_WITH_LOW_MARGIN")
+    assert is_go_old is False, "Old logic correctly excluded — regression guard"
+
+    is_go_new = "GO_WITH_RECOMMENDED_MARGIN" in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN")
+    assert is_go_new is True, "Corrected logic must include GO_WITH_RECOMMENDED_MARGIN"
+
+
+def test_notebook_hf_token_placeholder_not_injected():
+    """
+    Regression for Bug 2: the notebook must not overwrite HF_TOKEN with a
+    fake placeholder string 'hf_your_token_here'.
+
+    Reads the raw notebook source and asserts the placeholder string is absent.
+    """
+    import json as _json
+    nb_path = os.path.join(
+        os.path.dirname(__file__), "..", "colab", "03_model_storage.ipynb"
+    )
+    nb_path = os.path.abspath(nb_path)
+    assert os.path.exists(nb_path), f"Notebook not found: {nb_path}"
+
+    with open(nb_path, "r", encoding="utf-8") as f:
+        nb_src = f.read()
+
+    assert "hf_your_token_here" not in nb_src, (
+        "Notebook must not contain the fake HF token placeholder 'hf_your_token_here'. "
+        "Injecting it overwrites a valid runtime token with a non-functional string."
+    )

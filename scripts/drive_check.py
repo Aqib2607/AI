@@ -67,7 +67,7 @@ def get_drive_service(credentials=None):
     try:
         from googleapiclient.discovery import build  # type: ignore
         return build("drive", "v3", credentials=credentials)
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -429,23 +429,48 @@ def check_drive_storage(
         "write_permission_status": "GRANTED" if is_writable else "DENIED",
         "write_permission_error": write_error,
         "subdirectories": subdirs,
-        "status": overall_status
+        "status": overall_status,
+        "api_available": quota_info.get("success", False)
     }
     
     return report
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return command-line argument parser."""
     parser = argparse.ArgumentParser(description="Google Drive Storage & Project Structure Check")
-    parser.add_argument("--path", default=os.getenv("DRIVE_MODEL_DIR", "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"),
-                        help="Google Drive mount project or model directory")
-    parser.add_argument("--required-gb", type=float, default=400.0,
-                        help="Minimum required free storage in GB (default: 400.0)")
-    parser.add_argument("--recommended-gb", type=float, default=450.0,
-                        help="Recommended free storage in GB (default: 450.0)")
-    parser.add_argument("--folder-id", default=TARGET_FOLDER_ID,
-                        help=f"Google Drive target folder ID (default: {TARGET_FOLDER_ID})")
-    parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    parser.add_argument(
+        "--path",
+        default=os.getenv("DRIVE_MODEL_DIR", "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"),
+        help="Target mounted Google Drive project or model directory"
+    )
+    parser.add_argument(
+        "--required-gb",
+        type=float,
+        default=400.0,
+        help="Absolute minimum free Google Drive account quota required (default: 400.0)"
+    )
+    parser.add_argument(
+        "--recommended-gb",
+        type=float,
+        default=450.0,
+        help="Recommended free Google Drive account quota (default: 450.0)"
+    )
+    parser.add_argument(
+        "--folder-id",
+        default=TARGET_FOLDER_ID,
+        help=f"Expected Google Drive folder ID (default: {TARGET_FOLDER_ID})"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output machine-readable JSON validation report"
+    )
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     service = get_drive_service()
@@ -460,6 +485,8 @@ def main():
     if args.json:
         print(json.dumps(report, indent=2))
         is_success = report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
+        if not report.get("api_available", True) and not is_success:
+            sys.exit(3)
         sys.exit(0 if is_success else 1)
 
     if console:
@@ -471,27 +498,34 @@ def main():
         used_str = f"{report['drive_account_usage_gb']:,} GB ({report['drive_account_usage_gib']} GiB)" if report['drive_account_usage_gb'] else "Unknown"
 
         text = (
-            f"[bold cyan]=== Authoritative Google Drive Account Quota (API v3) ===[/bold cyan]\n"
-            f"[bold]Account:[/bold]                 {report['account_email']}\n"
-            f"[bold]Target Folder:[/bold]            {report['target_folder_name']} (ID: {report['target_folder_id']})\n"
-            f"[bold]Total Account Plan:[/bold]       {limit_str}\n"
-            f"[bold]Used Space:[/bold]               {used_str}\n"
-            f"[bold]Available Free Space:[/bold]     [bold {color}]{free_str}[/bold {color}]\n"
-            f"[bold]Required Threshold:[/bold]       >= {report['required_free_gb']} GB (Recommended: >= {report['recommended_free_gb']} GB)\n"
+            f"[bold cyan]=== Google Drive Storage & Isolation Report ===[/bold cyan]\n"
+            f"[bold]Authenticated Account:[/bold]     {report['account_email']}\n"
+            f"[bold]Target Folder Name:[/bold]        {report['target_folder_name']}\n"
+            f"[bold]Target Folder ID:[/bold]          {report['target_folder_id']}\n"
+            f"[bold]Target Path:[/bold]               {report['target_path']}\n\n"
+            f"[bold cyan]Google Drive Account Quota:[/bold cyan]\n"
+            f"  Total Plan:                  {limit_str}\n"
+            f"  Used Storage:                {used_str}\n"
+            f"  Available Free Space:        [bold {color}]{free_str}[/bold {color}]\n"
+            f"  Required Threshold:          >= {report['required_free_gb']} GB\n"
+            f"  Recommended Threshold:       >= {report['recommended_free_gb']} GB\n\n"
+            f"[bold yellow]Google Drive FUSE Diagnostics:[/bold yellow]\n"
+            f"  Virtual Total Capacity:      {report['fuse_total_gb']} GB\n"
+            f"  Virtual Free Space:          {report['fuse_free_gb']} GB\n"
+            f"  [italic]NOTE: FUSE values are mount diagnostics only, not account quota.[/italic]\n\n"
             f"[bold]Storage Gate Status:[/bold]      [{color}]{report['storage_gate_status']}[/{color}]\n"
-            f"[bold]Reason:[/bold]                  {report['storage_gate_reason']}\n\n"
-            f"[bold yellow]=== Google Drive FUSE Mount (Diagnostic Only) ===[/bold yellow]\n"
-            f"[bold]Mount Path:[/bold]               {report['target_path']}\n"
-            f"[bold]FUSE Virtual Capacity:[/bold]    {report['fuse_total_gb']} GB (Free: {report['fuse_free_gb']} GB)\n"
-            f"[bold]Note:[/bold]                    {report['fuse_diagnostic_note']}\n\n"
-            f"[bold]Write Permitted:[/bold]          {'Yes' if report['write_permission_status'] == 'GRANTED' else 'No'}\n"
-            f"[bold]Subdirectories:[/bold]           {', '.join(report['subdirectories'].keys())}"
+            f"[bold]Storage Gate Reason:[/bold]      {report['storage_gate_reason']}\n"
+            f"[bold]Folder Validation:[/bold]        {report['folder_validation_status']}\n"
+            f"[bold]Write Permission:[/bold]         {report['write_permission_status']}\n"
+            f"[bold]Final Decision:[/bold]           [{color}]{report['status']}[/{color}]"
         )
         console.print(Panel(text, title="Google Drive Storage & Isolation Preflight Report", border_style=color))
     else:
         print(json.dumps(report, indent=2))
 
     is_success = report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
+    if not report.get("api_available", True) and not is_success:
+        sys.exit(3)
     sys.exit(0 if is_success else 1)
 
 

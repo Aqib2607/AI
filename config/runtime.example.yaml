@@ -1,0 +1,49 @@
+# ==============================================================================
+# Colibrì Inference Engine Runtime Configuration Template
+# ==============================================================================
+
+runtime:
+  engine: "colibri"
+  version: "1.4.0+"
+  binary_path: "c/colibri"
+  
+  # Memory & Tiering Budgets
+  memory:
+    dense_resident_ram_gb: 9.9
+    lru_cache_gb: 4.0
+    pinned_hotstore_enabled: true
+    usage_profile_path: ".coli_usage"
+    kv_cache_budget_gb: 2.0
+    
+  # Storage & Streaming
+  storage:
+    primary_model_dir: "/content/model"
+    persistent_drive_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"
+    use_direct_io: true
+    prefetch_layers_ahead: 1
+    
+    # Dual-Drive Mirroring (for hybrid local NVMe + Drive setups)
+    mirror:
+      enabled: false
+      mirror_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"
+      disk_weights: "9,1"
+      auto_stage_budget_gib: 150
+      
+  # Server & API Gateway
+  server:
+    host: "127.0.0.1"
+    port: 8000
+    api_key_env: "COLI_API_KEY"
+    workers: 1
+    max_queue: 32
+    queue_timeout_seconds: 120
+    sse_streaming: true
+    cors_allowed_origins:
+      - "http://localhost:3000"
+      - "http://127.0.0.1:3000"
+      
+  # Speculative Execution
+  speculation:
+    mtp_enabled: true
+    draft_depth: 2
+    acceptance_threshold: 0.80

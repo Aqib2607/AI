@@ -1,0 +1,76 @@
+# Environment & Local Secrets
+.env
+.env.local
+.env.*.local
+credentials/
+secrets/
+*.pem
+*.key
+*.token
+
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & Linting Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+dist/
+build/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Model Weights & Checkpoints (STRICTLY EXCLUDED FROM GIT)
+model/
+models/
+weights/
+shards/
+*.safetensors
+*.gguf
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.xet
+*.h5
+*.msgpack
+
+# Logs & Benchmark Generated Artifacts
+*.log
+logs/
+reports/generated/
+benchmarks/results/
+.coli_usage
+.coli_kv
+.coli_warmup
+
+# Data & Large Files
+*.jsonl
+*.parquet
+*.arrow
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

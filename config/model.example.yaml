@@ -1,0 +1,52 @@
+# ==============================================================================
+# Model Configuration Specification
+# GLM-5.2 Mixture-of-Experts (MoE) Architecture Template
+# ==============================================================================
+
+model:
+  name: "GLM-5.2"
+  full_parameter_count: "744B"
+  active_parameter_count: "40B"
+  architecture: "ChatGLM-MoE"
+  
+  # Quantization & Sharding
+  quantization:
+    scheme: "grouped-int4"
+    group_size: 64
+    format: "safetensors"
+    has_mtp_head: true
+    mtp_precision: "int8"
+    
+  # Primary Hugging Face Repository
+  repository:
+    primary: "mastouri/GLM-5.2-colibri-int4-g64-with-int8-mtp"
+    revision: "main"
+    reference_video_target: "annelo/GLM-5.2-FP8-Uncensored-Colibri-Int4"
+    fallback_target: "jlnsrk/GLM-5.2-colibri-int4"
+    
+  # File Component Expectations
+  files:
+    metadata:
+      - "config.json"
+      - "generation_config.json"
+      - "model.safetensors.index.json"
+    tokenizer:
+      - "tokenizer.json"
+      - "tokenizer_config.json"
+      - "special_tokens_map.json"
+    shards:
+      pattern: "model-{shard_idx:05d}-of-00038.safetensors"
+      total_shards: 38
+      expected_min_bytes: 390000000000 # ~390 GB safe boundary
+      
+  # Generation defaults
+  generation:
+    max_tokens: 4096
+    temperature: 0.7
+    top_p: 0.9
+    top_k: 50
+    repetition_penalty: 1.05
+    stop_tokens:
+      - "<|endoftext|>"
+      - "<|user|>"
+      - "<|observation|>"

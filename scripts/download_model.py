@@ -9,6 +9,7 @@ import sys
 import os
 import time
 import json
+import shutil
 import argparse
 import requests
 from typing import Dict, Any, List, Optional

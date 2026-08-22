@@ -1,0 +1,20 @@
+{
+  "include": [
+    ".",
+    "scripts",
+    "api",
+    "tests"
+  ],
+  "extraPaths": [
+    "D:/AI/tools/python311/Lib/site-packages",
+    "D:/AI/glm52-drive-runtime",
+    "D:/AI/glm52-drive-runtime/scripts",
+    "D:/AI/glm52-drive-runtime/api",
+    "D:/AI/glm52-drive-runtime/tests",
+    "scripts",
+    "api",
+    "tests"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

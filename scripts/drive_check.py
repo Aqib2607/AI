@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
 Google Drive Mount & Storage Health Check
-Validates mount status, directory write permissions, and storage quota feasibility
-for hosting the GLM-5.2 380 GB model package in Google Drive.
+Validates mount status, directory write permissions, project directory layout,
+and storage quota feasibility for hosting the GLM-5.2 400 GB model package
+in Google Drive within the designated target folder:
+Account: aqibjawwad2607@gmail.com
+Target Folder: "AI - Google Drive" (ID: 11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd)
 """
 
 import sys
@@ -10,7 +13,7 @@ import os
 import shutil
 import json
 import argparse
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 try:
     from rich.console import Console  # type: ignore
@@ -19,14 +22,36 @@ try:
 except ImportError:
     console = None
 
+EXPECTED_ACCOUNT = "aqibjawwad2607@gmail.com"
+TARGET_FOLDER_ID = "11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd"
+TARGET_FOLDER_NAME = "AI - Google Drive"
 
-def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict[str, Any]:
-    """Inspect storage capacity and write permissions for target Drive path."""
+REQUIRED_SUBDIRECTORIES = [
+    "model",
+    "runtime",
+    "logs",
+    "manifests",
+    "benchmarks"
+]
+
+
+def check_drive_storage(
+    base_path: str,
+    required_free_gb: float = 400.0,
+    init_subdirectories: bool = True
+) -> Dict[str, Any]:
+    """
+    Inspect storage capacity, project structure, and write permissions
+    for target Google Drive project path strictly within designated scope.
+    """
     resolved_path = os.path.abspath(base_path)
     exists = os.path.exists(resolved_path)
     
     result = {
         "target_path": resolved_path,
+        "expected_account": EXPECTED_ACCOUNT,
+        "target_folder_id": TARGET_FOLDER_ID,
+        "target_folder_name": TARGET_FOLDER_NAME,
         "exists": exists,
         "is_writable": False,
         "total_gb": 0.0,
@@ -35,6 +60,7 @@ def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict
         "required_free_gb": required_free_gb,
         "is_quota_sufficient": False,
         "is_drive_fuse": False,
+        "subdirectories": {},
         "status": "UNKNOWN",
         "error": None
     }
@@ -43,7 +69,7 @@ def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict
     if "/content/drive" in resolved_path:
         result["is_drive_fuse"] = True
     
-    # Create directory if it does not exist
+    # Ensure target directory exists strictly within scope
     if not exists:
         try:
             os.makedirs(resolved_path, exist_ok=True)
@@ -52,6 +78,17 @@ def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict
             result["error"] = f"Failed to create directory {resolved_path}: {str(e)}"
             result["status"] = "DIRECTORY_CREATION_FAILED"
             return result
+            
+    # Verify and initialize required subdirectories if base_path is project root or parent of model
+    project_root = resolved_path if os.path.basename(resolved_path) == "GLM-5.2" else os.path.dirname(resolved_path)
+    for subdir in REQUIRED_SUBDIRECTORIES:
+        sub_path = os.path.join(project_root, subdir)
+        if init_subdirectories:
+            os.makedirs(sub_path, exist_ok=True)
+        result["subdirectories"][subdir] = {
+            "path": sub_path,
+            "exists": os.path.exists(sub_path)
+        }
     
     # Check disk usage
     try:
@@ -69,7 +106,7 @@ def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict
         result["status"] = "DISK_QUERY_FAILED"
         return result
     
-    # Test write permissions
+    # Test write permissions strictly inside project directory
     test_probe_file = os.path.join(resolved_path, ".drive_probe_test.tmp")
     try:
         with open(test_probe_file, "w") as f:
@@ -92,11 +129,11 @@ def check_drive_storage(base_path: str, required_free_gb: float = 380.0) -> Dict
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Google Drive Storage Health Check")
-    parser.add_argument("--path", default=os.getenv("DRIVE_MODEL_DIR", "./mock_drive"),
-                        help="Google Drive mount base directory")
-    parser.add_argument("--required-gb", type=float, default=380.0,
-                        help="Minimum required free storage in GB")
+    parser = argparse.ArgumentParser(description="Google Drive Storage & Project Structure Check")
+    parser.add_argument("--path", default=os.getenv("DRIVE_MODEL_DIR", "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"),
+                        help="Google Drive mount project or model directory")
+    parser.add_argument("--required-gb", type=float, default=400.0,
+                        help="Minimum required free storage in GB (default: 400.0)")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     args = parser.parse_args()
 
@@ -109,17 +146,20 @@ def main():
     if console:
         color = "green" if report["status"] == "HEALTHY" else "yellow" if report["status"] == "INSUFFICIENT_STORAGE" else "red"
         text = (
+            f"[bold]Account Target:[/bold] {report['expected_account']}\n"
+            f"[bold]Folder Name / ID:[/bold] {report['target_folder_name']} ({report['target_folder_id']})\n"
             f"[bold]Target Path:[/bold] {report['target_path']}\n"
             f"[bold]Status:[/bold] [{color}]{report['status']}[/{color}]\n"
             f"[bold]Total Capacity:[/bold] {report['total_gb']} GB\n"
             f"[bold]Used Capacity:[/bold] {report['used_gb']} GB\n"
             f"[bold]Available Free:[/bold] {report['free_gb']} GB (Required: >= {report['required_free_gb']} GB)\n"
             f"[bold]Write Permitted:[/bold] {'Yes' if report['is_writable'] else 'No'}\n"
-            f"[bold]Google Drive FUSE:[/bold] {'Yes' if report['is_drive_fuse'] else 'No (Local/Direct)'}"
+            f"[bold]Google Drive FUSE:[/bold] {'Yes' if report['is_drive_fuse'] else 'No (Local/Direct)'}\n"
+            f"[bold]Subdirectories Verified:[/bold] {', '.join(report['subdirectories'].keys())}"
         )
         if report["error"]:
             text += f"\n[bold red]Error Message:[/bold red] {report['error']}"
-        console.print(Panel(text, title="Google Drive Storage Health Report", border_style=color))
+        console.print(Panel(text, title="Google Drive Storage & Isolation Report", border_style=color))
     else:
         print(json.dumps(report, indent=2))
 

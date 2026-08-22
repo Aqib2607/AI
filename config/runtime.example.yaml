@@ -11,7 +11,7 @@ runtime:
   # Core Colibri Environment Variables
   environment_variables:
     COLI_MODEL: "/content/model"
-    COLI_MODEL_MIRROR: "/content/drive/MyDrive/AI/GLM-5.2/model"
+    COLI_MODEL_MIRROR: "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"
     COLI_DISK_WEIGHTS: "9,1"
     COLI_RAM: "16"           # RAM budget in GB for caching
     COLI_CAP: "256"          # Max expert capacity per layer
@@ -31,14 +31,14 @@ runtime:
   # Storage & Streaming Strategy
   storage:
     primary_model_dir: "/content/model"
-    persistent_drive_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"
+    persistent_drive_dir: "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"
     use_direct_io: true
     prefetch_layers_ahead: 1
     
     # Dual-Drive Mirroring (Hybrid Local NVMe + Drive fallback)
     mirror:
       enabled: false
-      mirror_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"
+      mirror_dir: "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model"
       disk_weights: "9,1"
       auto_stage_budget_gib: 150
       

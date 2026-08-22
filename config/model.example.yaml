@@ -1,6 +1,6 @@
 # ==============================================================================
 # Model Configuration Specification
-# GLM-5.2 Mixture-of-Experts (MoE) Architecture Template
+# GLM-5.2 Mixture-of-Experts (MoE) Architecture Specification
 # ==============================================================================
 
 model:
@@ -16,28 +16,31 @@ model:
     format: "safetensors"
     has_mtp_head: true
     mtp_precision: "int8"
+    minimum_colibri_version: "v1.5.0+"
     
   # Primary Hugging Face Repository
   repository:
     primary: "mastouri/GLM-5.2-colibri-int4-g64-with-int8-mtp"
     revision: "main"
+    sha: "fd9b461ac7cae4b921470d0db12230c6505bd03c"
     reference_video_target: "annelo/GLM-5.2-FP8-Uncensored-Colibri-Int4"
     fallback_target: "jlnsrk/GLM-5.2-colibri-int4"
     
-  # File Component Expectations
+  # File Component Expectations (142 Total Safetensors Shards)
   files:
     metadata:
       - "config.json"
       - "generation_config.json"
-      - "model.safetensors.index.json"
     tokenizer:
       - "tokenizer.json"
       - "tokenizer_config.json"
-      - "special_tokens_map.json"
     shards:
-      pattern: "model-{shard_idx:05d}-of-00038.safetensors"
-      total_shards: 38
-      expected_min_bytes: 390000000000 # ~390 GB safe boundary
+      pattern: "out-*.safetensors"
+      total_shards: 142
+      regular_shards: 141
+      mtp_shards: 1
+      mtp_file: "out-mtp-00000.safetensors"
+      expected_total_bytes: 429276218793 # ~399.79 GiB / ~429.28 GB decimal
       
   # Generation defaults
   generation:

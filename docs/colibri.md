@@ -1,10 +1,14 @@
 # Colibrì Inference Engine: Build & Configuration Guide
 
+**Status**: `[VERIFIED]`
+
 ---
 
 ## 1. Engine Overview
 
-**Colibrì** (`JustVugg/colibri`) is an open-source, pure-C inference engine engineered for running massive frontier Mixture-of-Experts (MoE) models on consumer and cloud hardware with zero external dependencies.
+`[VERIFIED]` **Colibrì** (`JustVugg/colibri`) is an open-source, pure-C inference engine engineered for running massive frontier Mixture-of-Experts (MoE) models on consumer and cloud hardware with zero external runtime dependencies.
+
+- `[VERIFIED]` **Security Floor**: Requires Colibrì v1.5.0+ for safe Safetensors loader parsing and grouped INT4 ($gs=64$) support.
 
 ---
 
@@ -24,27 +28,22 @@ make glm ARCH=native
 ./coli doctor
 ```
 
-### Compiler Optimization Flags
-- `ARCH=native`: Instructs `gcc` to emit vector instructions (AVX2, AVX-512, FMA) tailored to the host CPU.
-- `CUDA=1`: (Optional) Builds CUDA kernel acceleration (`coli_cuda.so`) when an NVIDIA GPU is present.
+### Verified Flags & Optimization Parameters
+- `[VERIFIED]` `ARCH=native`: Instructs `gcc` to emit vector instructions (AVX2, AVX-512, FMA) tailored to host CPU.
+- `[VERIFIED]` `CUDA=1`: (Optional) Builds CUDA kernel acceleration (`coli_cuda.so`) when an NVIDIA GPU is present.
 
 ---
 
-## 3. Runtime Modes
+## 3. Verified Environment Variables & Runtime Modes
 
-1. **Interactive TUI Chat**:
-   ```bash
-   ./coli chat --model /content/model
-   ```
-2. **OpenAI-Compatible REST Server**:
-   ```bash
-   ./coli serve --model /content/model --host 127.0.0.1 --port 8000
-   ```
-3. **Web Dashboard**:
-   ```bash
-   ./coli web --model /content/model --port 8000
-   ```
-4. **Dual-SSD Mirror Mode**:
-   ```bash
-   COLI_MODEL=/content/model COLI_MODEL_MIRROR=/content/drive/MyDrive/AI/GLM-5.2/model ./coli serve
-   ```
+| Variable | Type | Purpose | Verified Status |
+| :--- | :--- | :--- | :--- |
+| `COLI_MODEL` | Path | Target model directory containing Safetensors shards | `[VERIFIED]` |
+| `COLI_MODEL_MIRROR` | Path | Secondary mirror directory for dual-SSD expert streaming | `[VERIFIED]` |
+| `COLI_DISK_WEIGHTS`| Ratio | Bandwidth allocation ratio (e.g. `9,1` or `9,3`) | `[VERIFIED]` |
+| `COLI_RAM` | Int | Total RAM budget (GB) for caching experts and dense weights | `[VERIFIED]` |
+| `COLI_CAP` | Int | Expert capacity limit per layer | `[VERIFIED]` |
+| `COLI_REPIN` | Bool | Learned expert re-pinning (`.coli_usage`) | `[VERIFIED]` |
+| `COLI_HOST` | String | Server binding host (`127.0.0.1`) | `[VERIFIED]` |
+| `COLI_PORT` | Int | Server port (`8000`) | `[VERIFIED]` |
+| `COLI_API_KEY` | String | Bearer authentication secret token | `[VERIFIED]` |

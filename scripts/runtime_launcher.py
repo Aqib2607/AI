@@ -87,10 +87,10 @@ def main():
     if not success:
         print("\n[bold red]Pre-Flight Validation Failed:[/bold red]")
         for err in errors:
-            print(f"  ✗ {err}")
+            print(f"  [FAIL] {err}")
         sys.exit(1)
 
-    print("\n✓ All pre-flight checks passed successfully.")
+    print("\n[OK] All pre-flight checks passed successfully.")
     if args.preflight_only:
         sys.exit(0)
 

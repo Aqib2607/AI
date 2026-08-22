@@ -70,9 +70,9 @@ def main():
         print(json.dumps(combined, indent=2))
     elif console:
         if is_ok:
-            console.print(f"[bold green]✓ Runtime is HEALTHY on {args.host}:{args.port} (Latency: {health['latency_ms']}ms)[/bold green]")
+            console.print(f"[bold green][OK] Runtime is HEALTHY on {args.host}:{args.port} (Latency: {health['latency_ms']}ms)[/bold green]")
         else:
-            console.print(f"[bold red]✗ Runtime probe FAILED on {args.host}:{args.port}[/bold red]")
+            console.print(f"[bold red][FAIL] Runtime probe FAILED on {args.host}:{args.port}[/bold red]")
             if not health["healthy"]:
                 console.print(f"  - Health Error: {health.get('error')}")
             if not models["accessible"]:

@@ -1,0 +1,775 @@
+{
+  "repository": "mastouri/GLM-5.2-colibri-int4-g64-with-int8-mtp",
+  "revision": "main",
+  "sha": "fd9b461ac7cae4b921470d0db12230c6505bd03c",
+  "verified_at": "2026-08-22T18:49:18Z",
+  "total_files": 149,
+  "total_bytes": 429276218793,
+  "total_gb_gib": 399.79,
+  "total_gb_decimal": 429.28,
+  "expected_shard_count": 142,
+  "expected_regular_shards": 141,
+  "expected_mtp_shards": 1,
+  "expected_mtp_bytes": 9959321520,
+  "expected_mtp_gb": 9.28,
+  "required_metadata_files": [
+    "config.json",
+    "generation_config.json",
+    "tokenizer.json",
+    "tokenizer_config.json"
+  ],
+  "colibri_compatibility": {
+    "engine": "JustVugg/colibri",
+    "minimum_version": "v1.5.0+",
+    "quantization": "grouped-int4 (group_size 64)",
+    "speculative_head": "int8-mtp",
+    "loader_security_floor": "v1.5.0+"
+  },
+  "file_manifest": [
+    {
+      "path": ".coli_usage",
+      "size_bytes": 90160,
+      "type": "file"
+    },
+    {
+      "path": ".gitattributes",
+      "size_bytes": 1570,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 16122,
+      "type": "file"
+    },
+    {
+      "path": "config.json",
+      "size_bytes": 29464,
+      "type": "file"
+    },
+    {
+      "path": "generation_config.json",
+      "size_bytes": 194,
+      "type": "file"
+    },
+    {
+      "path": "out-00000.safetensors",
+      "size_bytes": 2769691800,
+      "type": "file"
+    },
+    {
+      "path": "out-00001.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00002.safetensors",
+      "size_bytes": 3015367320,
+      "type": "file"
+    },
+    {
+      "path": "out-00003.safetensors",
+      "size_bytes": 3015284312,
+      "type": "file"
+    },
+    {
+      "path": "out-00004.safetensors",
+      "size_bytes": 3022445504,
+      "type": "file"
+    },
+    {
+      "path": "out-00005.safetensors",
+      "size_bytes": 3015284176,
+      "type": "file"
+    },
+    {
+      "path": "out-00006.safetensors",
+      "size_bytes": 3022445648,
+      "type": "file"
+    },
+    {
+      "path": "out-00007.safetensors",
+      "size_bytes": 3015284040,
+      "type": "file"
+    },
+    {
+      "path": "out-00008.safetensors",
+      "size_bytes": 3022445816,
+      "type": "file"
+    },
+    {
+      "path": "out-00009.safetensors",
+      "size_bytes": 3015283904,
+      "type": "file"
+    },
+    {
+      "path": "out-00010.safetensors",
+      "size_bytes": 3015367808,
+      "type": "file"
+    },
+    {
+      "path": "out-00011.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00012.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00013.safetensors",
+      "size_bytes": 3022445440,
+      "type": "file"
+    },
+    {
+      "path": "out-00014.safetensors",
+      "size_bytes": 3015284352,
+      "type": "file"
+    },
+    {
+      "path": "out-00015.safetensors",
+      "size_bytes": 3022445464,
+      "type": "file"
+    },
+    {
+      "path": "out-00016.safetensors",
+      "size_bytes": 3015284216,
+      "type": "file"
+    },
+    {
+      "path": "out-00017.safetensors",
+      "size_bytes": 3015367464,
+      "type": "file"
+    },
+    {
+      "path": "out-00018.safetensors",
+      "size_bytes": 3015284080,
+      "type": "file"
+    },
+    {
+      "path": "out-00019.safetensors",
+      "size_bytes": 3016232712,
+      "type": "file"
+    },
+    {
+      "path": "out-00020.safetensors",
+      "size_bytes": 3015284008,
+      "type": "file"
+    },
+    {
+      "path": "out-00021.safetensors",
+      "size_bytes": 3022445840,
+      "type": "file"
+    },
+    {
+      "path": "out-00022.safetensors",
+      "size_bytes": 3017695888,
+      "type": "file"
+    },
+    {
+      "path": "out-00023.safetensors",
+      "size_bytes": 3012955832,
+      "type": "file"
+    },
+    {
+      "path": "out-00024.safetensors",
+      "size_bytes": 3015367320,
+      "type": "file"
+    },
+    {
+      "path": "out-00025.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00026.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00027.safetensors",
+      "size_bytes": 3015284320,
+      "type": "file"
+    },
+    {
+      "path": "out-00028.safetensors",
+      "size_bytes": 3022445504,
+      "type": "file"
+    },
+    {
+      "path": "out-00029.safetensors",
+      "size_bytes": 3015284184,
+      "type": "file"
+    },
+    {
+      "path": "out-00030.safetensors",
+      "size_bytes": 3022445632,
+      "type": "file"
+    },
+    {
+      "path": "out-00031.safetensors",
+      "size_bytes": 3015284048,
+      "type": "file"
+    },
+    {
+      "path": "out-00032.safetensors",
+      "size_bytes": 3015367672,
+      "type": "file"
+    },
+    {
+      "path": "out-00033.safetensors",
+      "size_bytes": 3015283912,
+      "type": "file"
+    },
+    {
+      "path": "out-00034.safetensors",
+      "size_bytes": 3022445928,
+      "type": "file"
+    },
+    {
+      "path": "out-00035.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00036.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00037.safetensors",
+      "size_bytes": 3022445240,
+      "type": "file"
+    },
+    {
+      "path": "out-00038.safetensors",
+      "size_bytes": 3015283504,
+      "type": "file"
+    },
+    {
+      "path": "out-00039.safetensors",
+      "size_bytes": 3022444960,
+      "type": "file"
+    },
+    {
+      "path": "out-00040.safetensors",
+      "size_bytes": 3015284224,
+      "type": "file"
+    },
+    {
+      "path": "out-00041.safetensors",
+      "size_bytes": 3015367456,
+      "type": "file"
+    },
+    {
+      "path": "out-00042.safetensors",
+      "size_bytes": 3015284088,
+      "type": "file"
+    },
+    {
+      "path": "out-00043.safetensors",
+      "size_bytes": 3022445744,
+      "type": "file"
+    },
+    {
+      "path": "out-00044.safetensors",
+      "size_bytes": 3015283952,
+      "type": "file"
+    },
+    {
+      "path": "out-00045.safetensors",
+      "size_bytes": 3022445888,
+      "type": "file"
+    },
+    {
+      "path": "out-00046.safetensors",
+      "size_bytes": 3022445456,
+      "type": "file"
+    },
+    {
+      "path": "out-00047.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00048.safetensors",
+      "size_bytes": 3015367312,
+      "type": "file"
+    },
+    {
+      "path": "out-00049.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00050.safetensors",
+      "size_bytes": 3022445456,
+      "type": "file"
+    },
+    {
+      "path": "out-00051.safetensors",
+      "size_bytes": 3015284256,
+      "type": "file"
+    },
+    {
+      "path": "out-00052.safetensors",
+      "size_bytes": 3022445552,
+      "type": "file"
+    },
+    {
+      "path": "out-00053.safetensors",
+      "size_bytes": 3015284120,
+      "type": "file"
+    },
+    {
+      "path": "out-00054.safetensors",
+      "size_bytes": 3022445696,
+      "type": "file"
+    },
+    {
+      "path": "out-00055.safetensors",
+      "size_bytes": 3015283984,
+      "type": "file"
+    },
+    {
+      "path": "out-00056.safetensors",
+      "size_bytes": 3015367720,
+      "type": "file"
+    },
+    {
+      "path": "out-00057.safetensors",
+      "size_bytes": 3017702464,
+      "type": "file"
+    },
+    {
+      "path": "out-00058.safetensors",
+      "size_bytes": 3012948376,
+      "type": "file"
+    },
+    {
+      "path": "out-00059.safetensors",
+      "size_bytes": 3022444736,
+      "type": "file"
+    },
+    {
+      "path": "out-00060.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00061.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00062.safetensors",
+      "size_bytes": 3015284296,
+      "type": "file"
+    },
+    {
+      "path": "out-00063.safetensors",
+      "size_bytes": 3022445520,
+      "type": "file"
+    },
+    {
+      "path": "out-00064.safetensors",
+      "size_bytes": 3015284160,
+      "type": "file"
+    },
+    {
+      "path": "out-00065.safetensors",
+      "size_bytes": 3015367512,
+      "type": "file"
+    },
+    {
+      "path": "out-00066.safetensors",
+      "size_bytes": 3015284032,
+      "type": "file"
+    },
+    {
+      "path": "out-00067.safetensors",
+      "size_bytes": 3022445824,
+      "type": "file"
+    },
+    {
+      "path": "out-00068.safetensors",
+      "size_bytes": 3015283896,
+      "type": "file"
+    },
+    {
+      "path": "out-00069.safetensors",
+      "size_bytes": 3022445952,
+      "type": "file"
+    },
+    {
+      "path": "out-00070.safetensors",
+      "size_bytes": 3022445440,
+      "type": "file"
+    },
+    {
+      "path": "out-00071.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00072.safetensors",
+      "size_bytes": 3015367312,
+      "type": "file"
+    },
+    {
+      "path": "out-00073.safetensors",
+      "size_bytes": 3015284344,
+      "type": "file"
+    },
+    {
+      "path": "out-00074.safetensors",
+      "size_bytes": 3022445472,
+      "type": "file"
+    },
+    {
+      "path": "out-00075.safetensors",
+      "size_bytes": 3015284200,
+      "type": "file"
+    },
+    {
+      "path": "out-00076.safetensors",
+      "size_bytes": 3022445616,
+      "type": "file"
+    },
+    {
+      "path": "out-00077.safetensors",
+      "size_bytes": 3015284064,
+      "type": "file"
+    },
+    {
+      "path": "out-00078.safetensors",
+      "size_bytes": 3022445144,
+      "type": "file"
+    },
+    {
+      "path": "out-00079.safetensors",
+      "size_bytes": 3015283080,
+      "type": "file"
+    },
+    {
+      "path": "out-00080.safetensors",
+      "size_bytes": 3022445832,
+      "type": "file"
+    },
+    {
+      "path": "out-00081.safetensors",
+      "size_bytes": 3015367320,
+      "type": "file"
+    },
+    {
+      "path": "out-00082.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00083.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00084.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00085.safetensors",
+      "size_bytes": 3022445456,
+      "type": "file"
+    },
+    {
+      "path": "out-00086.safetensors",
+      "size_bytes": 3015284240,
+      "type": "file"
+    },
+    {
+      "path": "out-00087.safetensors",
+      "size_bytes": 3022445576,
+      "type": "file"
+    },
+    {
+      "path": "out-00088.safetensors",
+      "size_bytes": 3015284104,
+      "type": "file"
+    },
+    {
+      "path": "out-00089.safetensors",
+      "size_bytes": 3015367584,
+      "type": "file"
+    },
+    {
+      "path": "out-00090.safetensors",
+      "size_bytes": 3015283968,
+      "type": "file"
+    },
+    {
+      "path": "out-00091.safetensors",
+      "size_bytes": 3022445872,
+      "type": "file"
+    },
+    {
+      "path": "out-00092.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00093.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00094.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00095.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00096.safetensors",
+      "size_bytes": 3015367304,
+      "type": "file"
+    },
+    {
+      "path": "out-00097.safetensors",
+      "size_bytes": 3015284288,
+      "type": "file"
+    },
+    {
+      "path": "out-00098.safetensors",
+      "size_bytes": 3022445112,
+      "type": "file"
+    },
+    {
+      "path": "out-00099.safetensors",
+      "size_bytes": 3015283296,
+      "type": "file"
+    },
+    {
+      "path": "out-00100.safetensors",
+      "size_bytes": 3015367240,
+      "type": "file"
+    },
+    {
+      "path": "out-00101.safetensors",
+      "size_bytes": 3015284016,
+      "type": "file"
+    },
+    {
+      "path": "out-00102.safetensors",
+      "size_bytes": 3022445824,
+      "type": "file"
+    },
+    {
+      "path": "out-00103.safetensors",
+      "size_bytes": 3021576616,
+      "type": "file"
+    },
+    {
+      "path": "out-00104.safetensors",
+      "size_bytes": 3016153232,
+      "type": "file"
+    },
+    {
+      "path": "out-00105.safetensors",
+      "size_bytes": 3015367320,
+      "type": "file"
+    },
+    {
+      "path": "out-00106.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00107.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00108.safetensors",
+      "size_bytes": 3015284320,
+      "type": "file"
+    },
+    {
+      "path": "out-00109.safetensors",
+      "size_bytes": 3022445496,
+      "type": "file"
+    },
+    {
+      "path": "out-00110.safetensors",
+      "size_bytes": 3015284184,
+      "type": "file"
+    },
+    {
+      "path": "out-00111.safetensors",
+      "size_bytes": 3022445632,
+      "type": "file"
+    },
+    {
+      "path": "out-00112.safetensors",
+      "size_bytes": 3015284048,
+      "type": "file"
+    },
+    {
+      "path": "out-00113.safetensors",
+      "size_bytes": 3015367664,
+      "type": "file"
+    },
+    {
+      "path": "out-00114.safetensors",
+      "size_bytes": 3015283912,
+      "type": "file"
+    },
+    {
+      "path": "out-00115.safetensors",
+      "size_bytes": 3022445928,
+      "type": "file"
+    },
+    {
+      "path": "out-00116.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00117.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00118.safetensors",
+      "size_bytes": 3022445240,
+      "type": "file"
+    },
+    {
+      "path": "out-00119.safetensors",
+      "size_bytes": 3015283504,
+      "type": "file"
+    },
+    {
+      "path": "out-00120.safetensors",
+      "size_bytes": 3022444960,
+      "type": "file"
+    },
+    {
+      "path": "out-00121.safetensors",
+      "size_bytes": 3015284224,
+      "type": "file"
+    },
+    {
+      "path": "out-00122.safetensors",
+      "size_bytes": 3015367456,
+      "type": "file"
+    },
+    {
+      "path": "out-00123.safetensors",
+      "size_bytes": 3015284088,
+      "type": "file"
+    },
+    {
+      "path": "out-00124.safetensors",
+      "size_bytes": 3022445744,
+      "type": "file"
+    },
+    {
+      "path": "out-00125.safetensors",
+      "size_bytes": 3015283960,
+      "type": "file"
+    },
+    {
+      "path": "out-00126.safetensors",
+      "size_bytes": 3022445888,
+      "type": "file"
+    },
+    {
+      "path": "out-00127.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00128.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00129.safetensors",
+      "size_bytes": 3015367320,
+      "type": "file"
+    },
+    {
+      "path": "out-00130.safetensors",
+      "size_bytes": 3015284368,
+      "type": "file"
+    },
+    {
+      "path": "out-00131.safetensors",
+      "size_bytes": 3022445448,
+      "type": "file"
+    },
+    {
+      "path": "out-00132.safetensors",
+      "size_bytes": 3015284264,
+      "type": "file"
+    },
+    {
+      "path": "out-00133.safetensors",
+      "size_bytes": 3022445552,
+      "type": "file"
+    },
+    {
+      "path": "out-00134.safetensors",
+      "size_bytes": 3015284128,
+      "type": "file"
+    },
+    {
+      "path": "out-00135.safetensors",
+      "size_bytes": 998074800,
+      "type": "file"
+    },
+    {
+      "path": "out-00136.safetensors",
+      "size_bytes": 16,
+      "type": "file"
+    },
+    {
+      "path": "out-00137.safetensors",
+      "size_bytes": 2413666968,
+      "type": "file"
+    },
+    {
+      "path": "out-00138.safetensors",
+      "size_bytes": 3015283048,
+      "type": "file"
+    },
+    {
+      "path": "out-00139.safetensors",
+      "size_bytes": 3022445112,
+      "type": "file"
+    },
+    {
+      "path": "out-00140.safetensors",
+      "size_bytes": 2661459896,
+      "type": "file"
+    },
+    {
+      "path": "out-mtp-00000.safetensors",
+      "size_bytes": 9959321520,
+      "type": "file"
+    },
+    {
+      "path": "tokenizer.json",
+      "size_bytes": 20217442,
+      "type": "file"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "size_bytes": 761,
+      "type": "file"
+    }
+  ]
+}

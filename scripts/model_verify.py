@@ -22,14 +22,12 @@ except ImportError:
 
 REQUIRED_METADATA_FILES = [
     "config.json",
-    "generation_config.json",
-    "model.safetensors.index.json"
+    "generation_config.json"
 ]
 
 REQUIRED_TOKENIZER_FILES = [
     "tokenizer.json",
-    "tokenizer_config.json",
-    "special_tokens_map.json"
+    "tokenizer_config.json"
 ]
 
 
@@ -62,7 +60,7 @@ def read_safetensors_header(file_path: str) -> Tuple[bool, Optional[Dict[str, An
         return False, None, f"Header parse failure: {str(e)}"
 
 
-def verify_model_directory(model_dir: str, min_expected_shards: int = 38) -> Dict[str, Any]:
+def verify_model_directory(model_dir: str, min_expected_shards: int = 142) -> Dict[str, Any]:
     """Perform full non-destructive validation on target model directory."""
     abs_dir = os.path.abspath(model_dir)
     report = {
@@ -192,8 +190,8 @@ def main():
     parser = argparse.ArgumentParser(description="Non-Destructive Model Header Validator")
     parser.add_argument("--model-dir", default=os.getenv("MODEL_DIR", "./model"),
                         help="Target directory containing model shards and metadata")
-    parser.add_argument("--expected-shards", type=int, default=38,
-                        help="Expected number of Safetensors shard files")
+    parser.add_argument("--expected-shards", type=int, default=142,
+                        help="Expected number of Safetensors shard files (default 142)")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     args = parser.parse_args()
 

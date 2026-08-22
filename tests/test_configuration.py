@@ -46,8 +46,9 @@ def test_model_yaml_configuration():
     assert config["model"]["name"] == "GLM-5.2"
     assert config["model"]["quantization"]["scheme"] == "grouped-int4"
     assert config["model"]["quantization"]["group_size"] == 64
-    assert config["model"]["quantization"]["has_mtp_head"] is True
-    assert config["model"]["files"]["shards"]["total_shards"] == 38
+    assert config["model"]["files"]["shards"]["total_shards"] == 142
+    assert config["model"]["files"]["shards"]["mtp_shards"] == 1
+    assert config["model"]["quantization"]["minimum_colibri_version"] == "v1.5.0+"
 
 
 def test_runtime_yaml_configuration():

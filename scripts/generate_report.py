@@ -13,6 +13,7 @@ import time
 import argparse
 from typing import Dict, Any
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from environment_check import run_full_diagnostic
 from model_verify import verify_model_directory
 

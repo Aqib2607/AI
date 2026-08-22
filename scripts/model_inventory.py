@@ -19,16 +19,20 @@ try:
 except ImportError:
     console = None
 
-EXPECTED_METADATA_FILES = [
+REQUIRED_METADATA_FILES = [
     "config.json",
-    "generation_config.json",
-    "model.safetensors.index.json"
+    "generation_config.json"
 ]
 
-EXPECTED_TOKENIZER_FILES = [
+REQUIRED_TOKENIZER_FILES = [
     "tokenizer.json",
-    "tokenizer_config.json",
-    "special_tokens_map.json"
+    "tokenizer_config.json"
+]
+
+OPTIONAL_FILES = [
+    "model.safetensors.index.json",
+    "special_tokens_map.json",
+    "out-mtp-00000.safetensors"
 ]
 
 
@@ -47,14 +51,14 @@ def scan_model_directory(model_dir: str) -> Dict[str, Any]:
             "total_shards": 0,
             "total_bytes": 0,
             "total_gb": 0.0,
-            "missing_metadata": EXPECTED_METADATA_FILES,
-            "missing_tokenizer": EXPECTED_TOKENIZER_FILES
+            "missing_metadata": REQUIRED_METADATA_FILES,
+            "missing_tokenizer": REQUIRED_TOKENIZER_FILES
         }
     
     # Check metadata files
     metadata_found = {}
     missing_metadata = []
-    for meta in EXPECTED_METADATA_FILES:
+    for meta in REQUIRED_METADATA_FILES:
         meta_path = os.path.join(abs_dir, meta)
         if os.path.exists(meta_path):
             metadata_found[meta] = {
@@ -67,7 +71,7 @@ def scan_model_directory(model_dir: str) -> Dict[str, Any]:
     # Check tokenizer files
     tokenizer_found = {}
     missing_tokenizer = []
-    for tok in EXPECTED_TOKENIZER_FILES:
+    for tok in REQUIRED_TOKENIZER_FILES:
         tok_path = os.path.join(abs_dir, tok)
         if os.path.exists(tok_path):
             tokenizer_found[tok] = {
@@ -134,14 +138,14 @@ def print_inventory_table(inventory: Dict[str, Any]):
     table.add_row("Overview", "Total Size", f"{inventory['total_gb']} GB ({inventory['total_bytes']:,} bytes)")
 
     # Metadata
-    for meta in EXPECTED_METADATA_FILES:
+    for meta in REQUIRED_METADATA_FILES:
         if meta in inventory["metadata_files"]:
             table.add_row("Metadata", meta, f"Present ({inventory['metadata_files'][meta]['size_bytes']:,} B)")
         else:
             table.add_row("Metadata", meta, "[red]MISSING[/red]")
 
     # Tokenizer
-    for tok in EXPECTED_TOKENIZER_FILES:
+    for tok in REQUIRED_TOKENIZER_FILES:
         if tok in inventory["tokenizer_files"]:
             table.add_row("Tokenizer", tok, f"Present ({inventory['tokenizer_files'][tok]['size_bytes']:,} B)")
         else:

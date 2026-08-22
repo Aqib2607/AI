@@ -1,12 +1,25 @@
 # ==============================================================================
-# Colibrì Inference Engine Runtime Configuration Template
+# Colibrì Inference Engine Runtime Configuration Specification
+# Verified for Colibrì v1.5.0+
 # ==============================================================================
 
 runtime:
   engine: "colibri"
-  version: "1.4.0+"
+  version: "1.5.0+"
   binary_path: "c/colibri"
   
+  # Core Colibri Environment Variables
+  environment_variables:
+    COLI_MODEL: "/content/model"
+    COLI_MODEL_MIRROR: "/content/drive/MyDrive/AI/GLM-5.2/model"
+    COLI_DISK_WEIGHTS: "9,1"
+    COLI_RAM: "16"           # RAM budget in GB for caching
+    COLI_CAP: "256"          # Max expert capacity per layer
+    COLI_REPIN: "1"          # Enable learned expert re-pinning (.coli_usage)
+    COLI_HOST: "127.0.0.1"
+    COLI_PORT: "8000"
+    COLI_API_KEY: "coli_sk_live_replace_with_secure_random_key"
+    
   # Memory & Tiering Budgets
   memory:
     dense_resident_ram_gb: 9.9
@@ -15,14 +28,14 @@ runtime:
     usage_profile_path: ".coli_usage"
     kv_cache_budget_gb: 2.0
     
-  # Storage & Streaming
+  # Storage & Streaming Strategy
   storage:
     primary_model_dir: "/content/model"
     persistent_drive_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"
     use_direct_io: true
     prefetch_layers_ahead: 1
     
-    # Dual-Drive Mirroring (for hybrid local NVMe + Drive setups)
+    # Dual-Drive Mirroring (Hybrid Local NVMe + Drive fallback)
     mirror:
       enabled: false
       mirror_dir: "/content/drive/MyDrive/AI/GLM-5.2/model"

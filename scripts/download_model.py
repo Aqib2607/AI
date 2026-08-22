@@ -90,7 +90,7 @@ def download_file_resumable(
         current_sz = os.path.getsize(target_path)
         if expected_size and current_sz == expected_size:
             if console:
-                console.print(f"[green]✓ {os.path.basename(target_path)} already exists and is complete ({current_sz:,} bytes)[/green]")
+                console.print(f"[green][OK] {os.path.basename(target_path)} already exists and is complete ({current_sz:,} bytes)[/green]")
             return True
             
     # Check partial download state
@@ -138,7 +138,7 @@ def download_file_resumable(
             os.rename(temp_path, target_path)
             
             if console:
-                console.print(f"[green]✓ Finalized {os.path.basename(target_path)} ({downloaded_bytes:,} bytes)[/green]")
+                console.print(f"[green][OK] Finalized {os.path.basename(target_path)} ({downloaded_bytes:,} bytes)[/green]")
             return True
             
         except Exception as e:

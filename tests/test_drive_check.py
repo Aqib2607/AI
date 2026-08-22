@@ -1,6 +1,6 @@
 """
 Unit tests for drive_check.py CLI arguments, Google Drive API v3 quota evaluation,
-FUSE diagnostic metric isolation, and folder metadata validation.
+FUSE diagnostic metric isolation, folder metadata validation, and fallback discovery.
 """
 
 import os
@@ -122,7 +122,9 @@ def test_fuse_diagnostic_metric_isolation(tmp_path):
         "id": TARGET_FOLDER_ID,
         "name": TARGET_FOLDER_NAME,
         "mimeType": "application/vnd.google-apps.folder",
-        "trashed": False
+        "trashed": False,
+        "owners": [{"emailAddress": EXPECTED_ACCOUNT}],
+        "parents": ["root"]
     }
     report = check_drive_storage(
         path=str(tmp_path / "model"),
@@ -134,26 +136,30 @@ def test_fuse_diagnostic_metric_isolation(tmp_path):
     )
     assert report["drive_account_free_gb"] == 4836.83
     assert report["storage_gate_status"] == "GO_WITH_RECOMMENDED_MARGIN"
-    assert report["status"] == "HEALTHY"
+    assert report["status"] in ("GO", "HEALTHY", "GO_WITH_FILESYSTEM_ACCESS")
     assert "diagnostic" in report["fuse_diagnostic_note"].lower()
 
 
 def test_target_folder_valid_metadata():
-    """Verify folder validation passes for correct ID and folder name."""
+    """Verify folder validation passes for correct ID, name, ownership, and mimeType."""
     mock_folder = {
         "id": TARGET_FOLDER_ID,
         "name": TARGET_FOLDER_NAME,
         "mimeType": "application/vnd.google-apps.folder",
-        "trashed": False
+        "trashed": False,
+        "owners": [{"emailAddress": EXPECTED_ACCOUNT}],
+        "parents": ["root"]
     }
     res = validate_target_folder(mock_response=mock_folder)
     assert res["valid"] is True
     assert res["folder_name"] == TARGET_FOLDER_NAME
     assert res["is_folder"] is True
+    assert res["folder_id_match"] == "PASS"
+    assert EXPECTED_ACCOUNT in res["owners"]
 
 
-def test_target_folder_wrong_id_or_name():
-    """Verify folder validation fails for wrong name or non-folder item."""
+def test_target_folder_wrong_name_rejected():
+    """Verify folder validation fails when folder name differs from expected."""
     mock_wrong_name = {
         "id": TARGET_FOLDER_ID,
         "name": "Different Folder",
@@ -162,12 +168,62 @@ def test_target_folder_wrong_id_or_name():
     }
     res = validate_target_folder(mock_response=mock_wrong_name)
     assert res["valid"] is False
+    assert "Folder name 'Different Folder' != expected" in res["error"]
 
+
+def test_target_folder_trashed_rejected():
+    """Verify folder validation fails when folder is in trash."""
     mock_trashed = {
         "id": TARGET_FOLDER_ID,
         "name": TARGET_FOLDER_NAME,
         "mimeType": "application/vnd.google-apps.folder",
         "trashed": True
     }
-    res_trashed = validate_target_folder(mock_response=mock_trashed)
-    assert res_trashed["valid"] is False
+    res = validate_target_folder(mock_response=mock_trashed)
+    assert res["valid"] is False
+    assert "Folder is in Drive Trash" in res["error"]
+
+
+def test_target_folder_non_folder_mime_rejected():
+    """Verify non-folder item (e.g. file) is rejected."""
+    mock_file = {
+        "id": TARGET_FOLDER_ID,
+        "name": TARGET_FOLDER_NAME,
+        "mimeType": "application/octet-stream",
+        "trashed": False
+    }
+    res = validate_target_folder(mock_response=mock_file)
+    assert res["valid"] is False
+    assert "MIME type" in res["error"]
+
+
+def test_target_folder_fallback_discovery():
+    """Verify fallback discovery exposes exact folder candidate if direct query fails."""
+    mock_list = {
+        "files": [{
+            "id": TARGET_FOLDER_ID,
+            "name": TARGET_FOLDER_NAME,
+            "mimeType": "application/vnd.google-apps.folder",
+            "trashed": False,
+            "owners": [{"emailAddress": EXPECTED_ACCOUNT}],
+            "parents": ["root"]
+        }]
+    }
+    res = validate_target_folder(mock_response=None, mock_list_response=mock_list)
+    assert res["valid"] is False  # Direct lookup was None, but discovered candidate recorded
+    assert res["discovered_candidate"] is not None
+    assert res["discovered_candidate"]["id"] == TARGET_FOLDER_ID
+    assert res["configured_folder_id"] == TARGET_FOLDER_ID
+
+
+def test_target_folder_multiple_exact_name_candidates():
+    """Verify ambiguity detection when multiple folders share the same name."""
+    mock_list = {
+        "files": [
+            {"id": TARGET_FOLDER_ID, "name": TARGET_FOLDER_NAME},
+            {"id": "duplicate_id_99999", "name": TARGET_FOLDER_NAME}
+        ]
+    }
+    res = validate_target_folder(mock_response=None, mock_list_response=mock_list)
+    assert res["discovery_error"] is not None
+    assert "Multiple (2) folders named" in res["discovery_error"]

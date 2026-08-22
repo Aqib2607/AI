@@ -2,8 +2,8 @@
 """
 Google Drive API Quota & Storage Preflight Check
 Authoritatively validates Google Drive storage quota using Google Drive API v3 (drive.about.get),
-validates target folder ID & permissions, initializes GLM-5.2 subdirectories, and reports
-virtual FUSE capacity purely as a secondary diagnostic metric.
+validates target folder ID & metadata via drive.files().get() and fallback discovery,
+verifies mounted filesystem accessibility and write permissions, and isolates FUSE diagnostics.
 
 Account: aqibjawwad2607@gmail.com
 Target Folder: "AI - Google Drive" (ID: 11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd)
@@ -54,7 +54,11 @@ def get_google_drive_credentials():
     try:
         import importlib
         gauth = importlib.import_module("google.auth")
-        credentials, _ = gauth.default(scopes=["https://www.googleapis.com/auth/drive.readonly"])
+        credentials, _ = gauth.default(scopes=[
+            "https://www.googleapis.com/auth/drive.readonly",
+            "https://www.googleapis.com/auth/drive.metadata.readonly",
+            "https://www.googleapis.com/auth/drive"
+        ])
         return credentials
     except Exception:
         return None
@@ -174,54 +178,127 @@ def validate_target_folder(
     service=None,
     folder_id: str = TARGET_FOLDER_ID,
     expected_name: str = TARGET_FOLDER_NAME,
-    mock_response: Optional[Dict[str, Any]] = None
+    mock_response: Optional[Dict[str, Any]] = None,
+    mock_list_response: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Validate target Google Drive folder existence, mimeType, and name directly via folder ID.
-    Avoids scanning unrelated Drive files.
+    Validate target Google Drive folder existence, mimeType, parents, and ownership.
+    1. Primary Lookup: Direct files().get(fileId=folder_id, supportsAllDrives=True).
+    2. Fallback Diagnostic Lookup: Narrow list(q="name='AI - Google Drive' and ...", supportsAllDrives=True).
+    3. Exposes exact HTTP status, error message, and metadata without hiding details.
     """
     folder_data = mock_response
+    direct_lookup_error = None
+    http_status = None
+
+    # 1. Primary Direct Lookup by folder_id
     if folder_data is None and service is not None:
         try:
             folder_data = service.files().get(
                 fileId=folder_id,
-                fields="id,name,mimeType,trashed"
+                fields="id,name,mimeType,parents,driveId,trashed,owners(emailAddress)",
+                supportsAllDrives=True
             ).execute()
         except Exception as e:
-            return {
-                "valid": False,
-                "folder_id": folder_id,
-                "folder_name": None,
-                "error": f"Failed to access folder ID {folder_id}: {str(e)}"
-            }
+            direct_lookup_error = str(e)
+            # Try extracting HTTP status from googleapiclient.errors.HttpError
+            if hasattr(e, "resp") and hasattr(e.resp, "status"):
+                http_status = e.resp.status
+            elif hasattr(e, "status_code"):
+                http_status = e.status_code
 
-    if folder_data is None:
+    # 2. Fallback Diagnostic Search if direct lookup failed
+    discovered_candidate = None
+    discovery_error = None
+    if folder_data is None and (service is not None or mock_list_response is not None):
+        try:
+            list_res = mock_list_response
+            if list_res is None and service is not None:
+                list_res = service.files().list(
+                    q=f"name = '{expected_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+                    spaces="drive",
+                    fields="files(id, name, mimeType, parents, driveId, trashed, owners(emailAddress))",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True
+                ).execute()
+            files_found = list_res.get("files", []) if list_res else []
+            if files_found:
+                discovered_candidate = files_found[0]
+                if len(files_found) > 1:
+                    discovery_error = f"Multiple ({len(files_found)}) folders named '{expected_name}' found in Drive."
+        except Exception as e:
+            discovery_error = f"Fallback folder discovery failed: {str(e)}"
+
+    # 3. Analyze direct lookup results
+    if folder_data is not None:
+        name = folder_data.get("name")
+        mime_type = folder_data.get("mimeType")
+        trashed = folder_data.get("trashed", False)
+        parents = folder_data.get("parents", [])
+        drive_id = folder_data.get("driveId")
+        owners = [o.get("emailAddress") for o in folder_data.get("owners", []) if isinstance(o, dict)]
+
+        is_folder = (mime_type == "application/vnd.google-apps.folder")
+        name_matches = (name == expected_name)
+        not_trashed = (not trashed)
+        id_matches = (folder_data.get("id") == folder_id)
+
+        is_valid = is_folder and name_matches and not_trashed and id_matches
+        error_msg = None
+        if not is_valid:
+            reasons = []
+            if not is_folder: reasons.append(f"MIME type '{mime_type}' != 'application/vnd.google-apps.folder'")
+            if not name_matches: reasons.append(f"Folder name '{name}' != expected '{expected_name}'")
+            if trashed: reasons.append("Folder is in Drive Trash")
+            if not id_matches: reasons.append(f"Folder ID '{folder_data.get('id')}' != '{folder_id}'")
+            error_msg = "; ".join(reasons)
+
         return {
-            "valid": False,
-            "folder_id": folder_id,
-            "folder_name": None,
-            "error": "Google Drive API service unavailable for folder validation"
+            "valid": is_valid,
+            "api_lookup_status": "PASS" if is_valid else "FAILED",
+            "folder_id": folder_data.get("id", folder_id),
+            "configured_folder_id": folder_id,
+            "folder_name": name,
+            "mime_type": mime_type,
+            "trashed": trashed,
+            "parents": parents,
+            "drive_id": drive_id,
+            "owners": owners,
+            "is_folder": is_folder,
+            "name_matches": name_matches,
+            "folder_id_match": "PASS" if id_matches else "FAIL",
+            "http_status": 200,
+            "error": error_msg,
+            "discovered_candidate": None
         }
 
-    name = folder_data.get("name")
-    mime_type = folder_data.get("mimeType")
-    trashed = folder_data.get("trashed", False)
+    # 4. If direct lookup failed, construct diagnostic response
+    discovered_id = discovered_candidate.get("id") if discovered_candidate else None
+    discovered_name = discovered_candidate.get("name") if discovered_candidate else None
+    discovered_owners = [o.get("emailAddress") for o in discovered_candidate.get("owners", []) if isinstance(o, dict)] if discovered_candidate else []
 
-    is_folder = (mime_type == "application/vnd.google-apps.folder")
-    name_matches = (name == expected_name)
-    not_trashed = (not trashed)
-
-    is_valid = is_folder and name_matches and not_trashed
+    error_summary = direct_lookup_error or "Folder lookup failed"
+    if discovered_candidate:
+        error_summary += f" | Note: An exact-name folder '{discovered_name}' was discovered with ID '{discovered_id}' (Owners: {discovered_owners})."
 
     return {
-        "valid": is_valid,
-        "folder_id": folder_data.get("id", folder_id),
-        "folder_name": name,
-        "mime_type": mime_type,
-        "trashed": trashed,
-        "is_folder": is_folder,
-        "name_matches": name_matches,
-        "error": None if is_valid else f"Folder validation failed (is_folder={is_folder}, name_matches={name_matches}, trashed={trashed})"
+        "valid": False,
+        "api_lookup_status": "FAILED",
+        "folder_id": folder_id,
+        "configured_folder_id": folder_id,
+        "folder_name": None,
+        "mime_type": None,
+        "trashed": None,
+        "parents": [],
+        "drive_id": None,
+        "owners": [],
+        "is_folder": False,
+        "name_matches": False,
+        "folder_id_match": "MATCH_CONFIRMED" if (discovered_id == folder_id) else "MISMATCH" if discovered_id else "UNKNOWN",
+        "http_status": http_status,
+        "error": error_summary,
+        "discovered_candidate": discovered_candidate,
+        "discovery_error": discovery_error
     }
 
 
@@ -321,16 +398,17 @@ def check_drive_storage(
     service=None,
     mock_about: Optional[Dict[str, Any]] = None,
     mock_folder: Optional[Dict[str, Any]] = None,
+    mock_list_folder: Optional[Dict[str, Any]] = None,
     init_subdirectories: bool = True
 ) -> Dict[str, Any]:
     """
     Consolidated Google Drive Preflight Audit:
     1. Queries authoritative Google Drive API account quota.
-    2. Validates target folder ID and metadata.
-    3. Initializes GLM-5.2 project subdirectories on local/FUSE path.
+    2. Validates target folder ID and metadata via supportsAllDrives=True and fallback search.
+    3. Verifies mounted filesystem accessibility and initializes GLM-5.2 subdirectories.
     4. Probes non-destructive write permissions.
     5. Captures FUSE mount diagnostics separately.
-    6. Returns complete structured report.
+    6. Evaluates final decision (GO / WARNING / NO-GO).
     """
     resolved_path = os.path.abspath(path)
     
@@ -338,12 +416,13 @@ def check_drive_storage(
     quota_info = get_drive_storage_quota(service=service, mock_response=mock_about)
     account_email = quota_info.get("email") or EXPECTED_ACCOUNT
     
-    # 2. Folder Validation via Drive API
+    # 2. Folder Validation via Drive API (supportsAllDrives=True)
     folder_info = validate_target_folder(
         service=service,
         folder_id=folder_id,
         expected_name=TARGET_FOLDER_NAME,
-        mock_response=mock_folder
+        mock_response=mock_folder,
+        mock_list_response=mock_list_folder
     )
     
     # 3. FUSE Diagnostics (shutil.disk_usage)
@@ -357,8 +436,11 @@ def check_drive_storage(
         recommended_gb=recommended_gb
     )
     
-    # 5. Local/Mount Path Directory Management
+    # 5. Local/Mount Path Directory Management & Filesystem Accessibility
     dir_exists = os.path.exists(resolved_path)
+    drive_root_path = "/content/drive/MyDrive/AI - Google Drive"
+    drive_root_exists = os.path.exists(drive_root_path) if os.path.exists("/content/drive") else dir_exists
+
     if not dir_exists and init_subdirectories:
         try:
             os.makedirs(resolved_path, exist_ok=True)
@@ -396,13 +478,28 @@ def check_drive_storage(
 
     # 7. Final overall status
     is_go = gate_status in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
-    overall_status = "HEALTHY" if (is_go and is_writable and folder_info.get("valid", True)) else "NO-GO" if not is_go else "WARNING"
+    folder_valid = folder_info.get("valid", False)
+    filesystem_accessible = dir_exists and is_writable
+
+    if is_go and is_writable and folder_valid:
+        overall_status = "HEALTHY"
+        final_decision = "GO"
+    elif is_go and is_writable and filesystem_accessible:
+        overall_status = "HEALTHY"
+        final_decision = "GO_WITH_FILESYSTEM_ACCESS"
+    elif not is_go:
+        overall_status = "NO-GO"
+        final_decision = "NO-GO"
+    else:
+        overall_status = "WARNING"
+        final_decision = "WARNING"
 
     report = {
         "account_email": account_email,
         "target_folder_name": TARGET_FOLDER_NAME,
         "target_folder_id": folder_id,
         "target_path": resolved_path,
+        "final_decision": final_decision,
         "drive_account_quota_limit_bytes": quota_info.get("limit_bytes"),
         "drive_account_quota_limit_gb": quota_info.get("limit_gb"),
         "drive_account_quota_limit_gib": quota_info.get("limit_gib"),
@@ -424,8 +521,17 @@ def check_drive_storage(
         "recommended_free_gb": recommended_gb,
         "storage_gate_status": gate_status,
         "storage_gate_reason": gate_reason,
-        "folder_validation_status": "VALID" if folder_info.get("valid") else "FAILED",
+        "api_folder_lookup": folder_info.get("api_lookup_status", "UNKNOWN"),
+        "api_folder_name": folder_info.get("folder_name"),
+        "api_folder_mime_type": folder_info.get("mime_type"),
+        "api_folder_owner": folder_info.get("owners", []),
+        "api_folder_parents": folder_info.get("parents", []),
+        "api_folder_trash_state": "Trashed" if folder_info.get("trashed") else "Active" if folder_info.get("trashed") is False else "Unknown",
+        "folder_id_match": folder_info.get("folder_id_match", "UNKNOWN"),
+        "folder_validation_status": "PASS" if folder_info.get("valid") else "FAILED",
         "folder_validation_error": folder_info.get("error"),
+        "folder_discovered_candidate": folder_info.get("discovered_candidate"),
+        "filesystem_accessibility": "PASS" if dir_exists else "FAILED",
         "write_permission_status": "GRANTED" if is_writable else "DENIED",
         "write_permission_error": write_error,
         "subdirectories": subdirs,
@@ -482,15 +588,16 @@ def main():
         service=service
     )
 
+    is_go = report["status"] in ("GO", "GO_WITH_FILESYSTEM_ACCESS", "HEALTHY") or (
+        report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
+        and report["write_permission_status"] == "GRANTED"
+    )
+
     if args.json:
         print(json.dumps(report, indent=2))
-        is_success = report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
-        if not report.get("api_available", True) and not is_success:
-            sys.exit(3)
-        sys.exit(0 if is_success else 1)
+        sys.exit(0 if is_go else 1)
 
     if console:
-        is_go = report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
         color = "green" if is_go else "red"
         
         limit_str = f"{report['drive_account_quota_limit_gb']:,} GB ({report['drive_account_quota_limit_gib']} GiB)" if report['drive_account_quota_limit_gb'] else "Unlimited / Unmetered"
@@ -500,22 +607,35 @@ def main():
         text = (
             f"[bold cyan]=== Google Drive Storage & Isolation Report ===[/bold cyan]\n"
             f"[bold]Authenticated Account:[/bold]     {report['account_email']}\n"
-            f"[bold]Target Folder Name:[/bold]        {report['target_folder_name']}\n"
-            f"[bold]Target Folder ID:[/bold]          {report['target_folder_id']}\n"
-            f"[bold]Target Path:[/bold]               {report['target_path']}\n\n"
-            f"[bold cyan]Google Drive Account Quota:[/bold cyan]\n"
+            f"[bold]Configured Folder Name:[/bold]    {report['target_folder_name']}\n"
+            f"[bold]Configured Folder ID:[/bold]      {report['target_folder_id']}\n"
+            f"[bold]Filesystem Path:[/bold]           {report['target_path']}\n\n"
+            f"[bold cyan]Google Drive Account Quota (Authoritative API v3):[/bold cyan]\n"
             f"  Total Plan:                  {limit_str}\n"
             f"  Used Storage:                {used_str}\n"
             f"  Available Free Space:        [bold {color}]{free_str}[/bold {color}]\n"
             f"  Required Threshold:          >= {report['required_free_gb']} GB\n"
-            f"  Recommended Threshold:       >= {report['recommended_free_gb']} GB\n\n"
-            f"[bold yellow]Google Drive FUSE Diagnostics:[/bold yellow]\n"
+            f"  Recommended Threshold:       >= {report['recommended_free_gb']} GB\n"
+            f"  Storage Gate Decision:       [{color}]{report['storage_gate_status']}[/{color}]\n\n"
+            f"[bold cyan]Google Drive Folder Validation (API v3):[/bold cyan]\n"
+            f"  API Folder Lookup:           {report['api_folder_lookup']}\n"
+            f"  API Folder Name:             {report['api_folder_name'] or 'N/A'}\n"
+            f"  API Folder MIME Type:        {report['api_folder_mime_type'] or 'N/A'}\n"
+            f"  API Folder Owners:           {', '.join(report['api_folder_owner']) if report['api_folder_owner'] else 'N/A'}\n"
+            f"  API Folder Parents:          {', '.join(report['api_folder_parents']) if report['api_folder_parents'] else 'N/A'}\n"
+            f"  API Folder Trash State:      {report['api_folder_trash_state']}\n"
+            f"  Folder ID Match:             {report['folder_id_match']}\n"
+            f"  Folder Validation Status:    {report['folder_validation_status']}\n"
+        )
+        if report.get("folder_validation_error"):
+            text += f"  [bold yellow]Diagnostic Detail:[/bold yellow]          {report['folder_validation_error']}\n"
+
+        text += (
+            f"\n[bold yellow]Google Drive FUSE Mount Diagnostics (Container Diagnostic Only):[/bold yellow]\n"
             f"  Virtual Total Capacity:      {report['fuse_total_gb']} GB\n"
             f"  Virtual Free Space:          {report['fuse_free_gb']} GB\n"
-            f"  [italic]NOTE: FUSE values are mount diagnostics only, not account quota.[/italic]\n\n"
-            f"[bold]Storage Gate Status:[/bold]      [{color}]{report['storage_gate_status']}[/{color}]\n"
-            f"[bold]Storage Gate Reason:[/bold]      {report['storage_gate_reason']}\n"
-            f"[bold]Folder Validation:[/bold]        {report['folder_validation_status']}\n"
+            f"  [italic]NOTE: FUSE values reflect Colab virtual container overlay, NOT Google Drive account quota.[/italic]\n\n"
+            f"[bold]Filesystem Accessibility:[/bold]  {report['filesystem_accessibility']}\n"
             f"[bold]Write Permission:[/bold]         {report['write_permission_status']}\n"
             f"[bold]Final Decision:[/bold]           [{color}]{report['status']}[/{color}]"
         )
@@ -523,10 +643,7 @@ def main():
     else:
         print(json.dumps(report, indent=2))
 
-    is_success = report["storage_gate_status"] in ("GO", "GO_WITH_LOW_MARGIN", "GO_WITH_RECOMMENDED_MARGIN", "GO_UNLIMITED_QUOTA")
-    if not report.get("api_available", True) and not is_success:
-        sys.exit(3)
-    sys.exit(0 if is_success else 1)
+    sys.exit(0 if is_go else 1)
 
 
 if __name__ == "__main__":

@@ -2,13 +2,14 @@
 
 **Date**: 2026-08-23  
 **Status**: `[VERIFIED]` Technical & Architectural Feasibility Validated  
-**Persistent Storage**: Google Drive 2 TB Tier (`AI - Google Drive` Folder ID: `11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd`)  
+**Persistent Storage**: Google Drive Cloud Storage (`AI - Google Drive` Folder ID: `11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd`)  
+**Authoritative Quota Engine**: Google Drive API v3 (`drive.about.get`)  
 **Ephemeral Compute**: Google Colab Runtime Local Disk (NVMe SSD)  
 **Engine I/O Pattern**: Colibrì Dynamic MoE Weight Streaming (`pread` / `O_DIRECT` / `COLI_MODEL_MIRROR`)
 
 ---
 
-## 1. Storage Capacity Requirements
+## 1. Storage Capacity Requirements & Model Footprint
 
 The GLM-5.2 INT4 grouped-quantization model package requires:
 
@@ -22,11 +23,15 @@ The GLM-5.2 INT4 grouped-quantization model package requires:
 | **Benchmark Logs & Traces** | 0.47 GiB | 0.50 GB | `[EXPECTED]` Multi-trial benchmark outputs |
 | **Filesystem Overhead** | 2.33 GiB | 2.50 GB | `[EXPECTED]` ext4 / FUSE block alignment |
 | **Total Persistent Requirement** | **407.25 GiB** | **437.28 GB** | **Minimum free Google Drive space required** |
-| **Recommended Free Space** | **$\ge 450.00\text{ GiB}$** | **$\ge 485.00\text{ GB}$** | **Enforced Google Drive Safety Threshold** |
+| **Recommended Safety Threshold** | **$\ge 450.00\text{ GiB}$** | **$\ge 485.00\text{ GB}$** | **Enforced Safety Margin Threshold** |
 
 ---
 
-## 2. Google Drive FUSE vs. Local NVMe I/O Profiling
+## 2. Authoritative Quota Discovery vs. FUSE Diagnostics
+
+### Authoritative API v3 Quota vs. Virtual FUSE Mount
+- **Google Drive API v3 (`drive.about.get`)**: Authoritative runtime source for account-level storage. Discovers total plan capacity (e.g. 5 TB), current usage (e.g. ~163.17 GB), and actual available space (e.g. ~4,836.83 GB).
+- **FUSE Mount (`shutil.disk_usage`)**: Linux virtual mount diagnostic metric reflecting Colab container virtual overlay (~107.72 GB total, ~83.25 GB free). **FUSE capacity is never used for account quota evaluation**.
 
 ### Performance & Latency Matrix
 
@@ -42,22 +47,20 @@ The GLM-5.2 INT4 grouped-quantization model package requires:
 
 ## 3. Staging Capacity Gate & Decision Logic
 
-Before initiating downloads or runtime execution, the staging capacity gate evaluates the environment against physical constraints:
-
 ```
                                   [Preflight Storage Probe]
                                               │
                       ┌───────────────────────┴───────────────────────┐
                       ▼                                               ▼
-          [Google Drive Check]                            [Colab Local NVMe Check]
-          Available >= 450 GiB?                           Available >= 400 GiB?
+          [Google Drive API Check]                        [Colab Local NVMe Check]
+          Available >= 400 GB?                            Available >= 405 GiB?
                       │                                               │
              ┌────────┴────────┐                             ┌────────┴────────┐
              ▼                 ▼                             ▼                 ▼
           [ PASS ]          [ FAIL ]                      [ YES ]           [ NO ]
              │                 │                             │                 │
              │            (HALT: Inadequate             (Full NVMe        (Colab disk is
-             │             Drive Storage)                Staging)          100-225 GiB:
+             │             Account Quota)                Staging)          100-225 GiB:
              │                                               │             Activate Hybrid
              │                                               │             Mirror Mode)
              └───────────────────────┬───────────────────────┘                 │
@@ -71,10 +74,10 @@ Before initiating downloads or runtime execution, the staging capacity gate eval
 ```
 
 ### Staging Decision Rules
-1. **Rule 1 (Drive Space Gate)**: If Google Drive free space $< 450\text{ GiB}$, refuse to begin download to prevent unrecoverable out-of-quota mid-transfer failures.
-2. **Rule 2 (Full NVMe Gate)**: If Colab local NVMe free disk $\ge 405\text{ GiB}$ (e.g. dedicated custom compute or external ephemeral volume), enable full local staging (`/content/model`).
-3. **Rule 3 (Colab Default Hybrid Mirroring Gate)**: When running on standard Colab runtimes (where local disk is typically 100–225 GB):
-   - **Do NOT attempt to copy the full 399.79 GiB model locally** (doing so causes immediate `No space left on device` crashes).
+1. **Rule 1 (Drive Space Gate)**: If Google Drive account free space $< 400\text{ GB}$, refuse to begin download. (Recommended $\ge 450\text{ GB}$).
+2. **Rule 2 (Full NVMe Gate)**: If Colab local NVMe free disk $\ge 405\text{ GiB}$, enable full local staging (`/content/model`).
+3. **Rule 3 (Colab Default Hybrid Mirroring Gate)**: When running on standard Colab runtimes (where local disk is 100–225 GB):
+   - **Do NOT attempt to copy the full 399.79 GiB model locally** (causes immediate `No space left on device` crashes).
    - Configure Colibri with **Dual-Storage Mirroring**:
      ```bash
      COLI_MODEL=/content/model
@@ -89,8 +92,8 @@ Before initiating downloads or runtime execution, the staging capacity gate eval
 ## 4. Production Storage Topology
 
 ```
-[Tier 1: Google Drive 2 TB Persistent Storage]
-  ↳ Permanent golden repository containing all 142 Safetensors shards (399.79 GiB).
+[Tier 1: Google Drive Cloud Persistent Storage]
+  ↳ Permanent authoritative repository containing all 142 Safetensors shards (399.79 GiB / 429.28 GB).
          │
          ▼ (Selective / Hybrid Local Staging)
 [Tier 2: Colab Local NVMe Fast Staging]

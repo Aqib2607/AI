@@ -43,7 +43,9 @@
 ## 5. Google Drive Validation
 - **Configuration Status**: **`PASS`**
 - **Target Account**: `aqibjawwad2607@gmail.com`
-- **Target Folder**: `AI - Google Drive` (ID: `11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd`)
+- **Target Folder**: `AI - Google Drive` (Folder ID: `11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd`)
+- **Authoritative Quota Engine**: Google Drive API v3 (`drive.about.get` querying `storageQuota`)
+- **FUSE Mount Diagnostics**: Linux FUSE container capacity (~107.72 GB total, ~83.25 GB free) is isolated as a secondary diagnostic metric.
 - **Mount Path in Colab**: `/content/drive/MyDrive/AI - Google Drive/GLM-5.2`
 - **Live Colab OAuth Mount**: **`AWAITING_USER_COLAB_AUTHENTICATION`** (User must execute `colab/02_drive_mount.ipynb` in Colab).
 

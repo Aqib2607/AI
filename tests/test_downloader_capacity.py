@@ -343,3 +343,62 @@ def test_notebook_hf_token_placeholder_not_injected():
         "Notebook must not contain the fake HF token placeholder 'hf_your_token_here'. "
         "Injecting it overwrites a valid runtime token with a non-functional string."
     )
+
+
+def test_notebook_cells_compile_without_syntax_error():
+    """
+    Regression for nested f-string SyntaxError in colab/03_model_storage.ipynb.
+
+    Python 3.12+ allows backslashes inside f-string expressions; Python 3.11
+    (Colab default as of 2024) does NOT. Nested f-strings like:
+        f\"{f\\\"{value}\\\"}\" 
+    raise SyntaxError: f-string expression part cannot include a backslash.
+
+    This test extracts every Python code cell, strips IPython shell magic lines
+    (lines starting with ! or %), and compiles the result. Any SyntaxError fails
+    the test before the notebook is ever executed in Colab.
+    """
+    import json
+    nb_path = os.path.join(
+        os.path.dirname(__file__), "..", "colab", "03_model_storage.ipynb"
+    )
+    nb_path = os.path.abspath(nb_path)
+    assert os.path.exists(nb_path), f"Notebook not found: {nb_path}"
+
+    with open(nb_path, "r", encoding="utf-8") as f:
+        nb = json.load(f)
+
+    syntax_errors = []
+    for cell_index, cell in enumerate(nb.get("cells", [])):
+        if cell.get("cell_type") != "code":
+            continue
+        src = "".join(cell.get("source", []))
+
+        # Strip IPython shell magic lines (! and %) including their backslash continuations
+        clean_lines = []
+        skip_continuation = False
+        for line in src.splitlines():
+            stripped = line.lstrip()
+            if skip_continuation:
+                if not line.rstrip().endswith("\\"):
+                    skip_continuation = False
+                continue
+            if stripped.startswith("!") or stripped.startswith("%"):
+                if line.rstrip().endswith("\\"):
+                    skip_continuation = True
+                continue
+            clean_lines.append(line)
+
+        clean = "\n".join(clean_lines)
+        try:
+            compile(clean, f"cell_{cell_index}", "exec")
+        except SyntaxError as e:
+            syntax_errors.append(
+                f"Cell {cell_index}, line {e.lineno}: {e.msg}\n"
+                f"  Source excerpt: {clean.splitlines()[max(0, (e.lineno or 1) - 1)].strip()!r}"
+            )
+
+    assert not syntax_errors, (
+        "SyntaxError(s) found in notebook code cells:\n"
+        + "\n".join(syntax_errors)
+    )

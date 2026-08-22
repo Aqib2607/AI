@@ -4,7 +4,6 @@ Unit tests for runtime pre-flight checks, environment diagnostics, and drive val
 
 import os
 import sys
-import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from environment_check import check_cpu_features, check_memory, check_disk

@@ -3,8 +3,7 @@ Unit tests for configuration parsing, schema validation, and environment variabl
 """
 
 import os
-import pytest
-import yaml
+import yaml  # type: ignore
 
 
 def test_env_example_contains_all_required_variables():

@@ -1,0 +1,18 @@
+{
+  "platform": "Windows-10-10.0.26200-SP0",
+  "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+  "processor": "Intel64 Family 6 Model 142 Stepping 10, GenuineIntel",
+  "cpu_count_logical": 8,
+  "cpu_count_physical": 4,
+  "ram_total_gb": 15.85,
+  "ram_available_gb": 6.23,
+  "local_disk_total_gb": 69.67,
+  "local_disk_free_gb": 33.99,
+  "target_cloud_runtime": {
+    "environment": "Google Colab",
+    "target_account": "aqibjawwad2607@gmail.com",
+    "target_folder_id": "11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd",
+    "target_folder_path": "/content/drive/MyDrive/AI - Google Drive/GLM-5.2",
+    "execution_state": "AWAITING_USER_COLAB_EXECUTION"
+  }
+}

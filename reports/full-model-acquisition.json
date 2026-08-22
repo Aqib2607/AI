@@ -1,58 +1,29 @@
 {
-  "acquisition_status": "READY_FOR_COLAB_EXECUTION",
+  "acquisition_status": "NOT_STARTED",
+  "implementation_status": "CONFIGURED",
   "model_id": "mastouri/GLM-5.2-colibri-int4-g64-with-int8-mtp",
   "commit_sha": "fd9b461ac7cae4b921470d0db12230c6505bd03c",
   "destination_directory": "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model",
   "google_drive_folder_id": "11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd",
   "google_account": "aqibjawwad2607@gmail.com",
-  "total_files": 149,
-  "total_bytes": 429276218793,
+  "total_remote_files": 149,
+  "total_remote_bytes": 429276218793,
   "total_gib": 399.79,
   "total_gb_decimal": 429.28,
-  "shards": {
-    "total_safetensors": 142,
-    "regular_shards": 141,
-    "mtp_shards": 1,
-    "mtp_file": "out-mtp-00000.safetensors",
-    "mtp_size_bytes": 9959321520,
-    "regular_shards_size_bytes": 419296541560
-  },
-  "metadata_files": [
-    {
-      "name": "config.json",
-      "size_bytes": 29464
-    },
-    {
-      "name": "generation_config.json",
-      "size_bytes": 194
-    },
-    {
-      "name": "tokenizer_config.json",
-      "size_bytes": 761
-    },
-    {
-      "name": "tokenizer.json",
-      "size_bytes": 20217442
-    }
-  ],
-  "download_strategy": {
-    "protocol": "HTTP_RANGE_RESUMABLE",
-    "chunk_size_bytes": 8388608,
+  "expected_safetensors_count": 142,
+  "expected_regular_shards": 141,
+  "expected_mtp_shards": 1,
+  "expected_metadata_files": 4,
+  "downloader_engine": {
+    "script": "scripts/download_model.py",
+    "smoke_test_status": "PASS",
+    "resumable_protocol": "HTTP_RANGE_RESUMABLE",
     "temporary_extension": ".tmp",
-    "atomic_finalize": true,
-    "prioritized_sequence": [
-      "config.json",
-      "generation_config.json",
-      "tokenizer_config.json",
-      "tokenizer.json",
-      "out-mtp-00000.safetensors",
-      "out-00000.safetensors",
-      "out-00001.safetensors through out-00140.safetensors"
-    ]
+    "atomic_finalize": true
   },
-  "storage_capacity_gate": {
-    "required_drive_free_gib": 450.0,
-    "verified_google_drive_tier": "2 TB Google One (~2,000 GB)",
-    "status": "PASS"
+  "colab_execution_requirement": {
+    "notebook": "colab/03_model_storage.ipynb",
+    "user_action": "Mount Drive and execute downloader in Google Colab runtime",
+    "reason": "429.28 GB model transfer must occur within Google Cloud infrastructure to persistent Google Drive"
   }
 }

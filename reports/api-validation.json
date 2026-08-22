@@ -1,51 +1,28 @@
 {
-  "api_specification": {
-    "protocol": "OpenAI REST v1",
-    "gateway_implementation": "FastAPI / Colibrì Native Engine",
-    "default_host": "127.0.0.1",
-    "default_port": 8000,
-    "authentication": "Bearer COLI_API_KEY",
-    "cors_allowed_origins": [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000"
-    ]
-  },
-  "endpoints_verified": [
+  "api_validation_status": "CONFIGURED",
+  "mock_test_suite_status": "PASS",
+  "real_model_serving_status": "NOT_TESTED_ON_REAL_MODEL",
+  "gateway_implementation": "FastAPI OpenAI REST v1",
+  "default_binding": "127.0.0.1:8000",
+  "endpoints": [
     {
-      "method": "GET",
       "path": "/health",
-      "auth_required": false,
-      "payload_response": {
-        "status": "healthy",
-        "engine": "colibri",
-        "version": "1.5.0+",
-        "resident_ram_gb": 9.9
-      },
-      "status": "PASS"
+      "mock_status": "PASS",
+      "real_status": "NOT_TESTED"
     },
     {
-      "method": "GET",
       "path": "/v1/models",
-      "auth_required": true,
-      "unauthorized_rejection_code": 401,
-      "authorized_success_code": 200,
-      "status": "PASS"
+      "mock_status": "PASS",
+      "real_status": "NOT_TESTED"
     },
     {
-      "method": "POST",
       "path": "/v1/chat/completions",
-      "auth_required": true,
-      "modes_supported": [
-        "json_buffered",
-        "server_sent_events_streaming"
-      ],
-      "status": "PASS"
+      "mock_status": "PASS",
+      "real_status": "NOT_TESTED"
     }
   ],
-  "security_controls": {
-    "localhost_binding_enforced": true,
-    "bearer_auth_enforced": true,
-    "rate_limiting_support": true,
-    "secrets_stored_in_git": false
+  "colab_execution_requirement": {
+    "notebook": "colab/08_api.ipynb",
+    "trigger_condition": "Must execute in Google Colab against live initialized Colibrì engine"
   }
 }

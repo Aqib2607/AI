@@ -52,8 +52,9 @@ def get_google_drive_credentials():
         pass
 
     try:
-        import google.auth
-        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/drive.readonly"])
+        import importlib
+        gauth = importlib.import_module("google.auth")
+        credentials, _ = gauth.default(scopes=["https://www.googleapis.com/auth/drive.readonly"])
         return credentials
     except Exception:
         return None

@@ -6,8 +6,14 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
-from environment_check import check_cpu_features, check_memory, check_disk
-from drive_check import check_drive_storage
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+try:
+    from scripts.environment_check import check_cpu_features, check_memory, check_disk  # type: ignore
+    from scripts.drive_check import check_drive_storage  # type: ignore
+except ImportError:
+    from environment_check import check_cpu_features, check_memory, check_disk  # type: ignore
+    from drive_check import check_drive_storage  # type: ignore
 
 
 def test_cpu_feature_detection():

@@ -5,21 +5,37 @@ folder validation, FUSE diagnostic isolation, and storage gate decision logic.
 
 import os
 import sys
-import pytest
-
-# Ensure scripts directory is on sys.path
+# Ensure scripts and root directories are on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from drive_check import (
-    get_drive_storage_quota,
-    validate_target_folder,
-    get_fuse_usage,
-    evaluate_storage_gate,
-    check_drive_storage,
-    EXPECTED_ACCOUNT,
-    TARGET_FOLDER_ID,
-    TARGET_FOLDER_NAME
-)
+try:
+    import pytest  # type: ignore
+except ImportError:
+    pass
+
+try:
+    from scripts.drive_check import (  # type: ignore
+        get_drive_storage_quota,
+        validate_target_folder,
+        get_fuse_usage,
+        evaluate_storage_gate,
+        check_drive_storage,
+        EXPECTED_ACCOUNT,
+        TARGET_FOLDER_ID,
+        TARGET_FOLDER_NAME
+    )
+except ImportError:
+    from drive_check import (  # type: ignore
+        get_drive_storage_quota,
+        validate_target_folder,
+        get_fuse_usage,
+        evaluate_storage_gate,
+        check_drive_storage,
+        EXPECTED_ACCOUNT,
+        TARGET_FOLDER_ID,
+        TARGET_FOLDER_NAME
+    )
 
 
 def test_drive_quota_calculation_5tb_user_plan():

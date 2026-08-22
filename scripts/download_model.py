@@ -4,6 +4,14 @@ Resumable Hugging Face Model Downloader with Atomic Verification
 Downloads multi-gigabyte Safetensors shards with prioritized sequencing,
 chunk-level resumption, atomic finalization, size validation, and manifest generation.
 
+Capacity Semantics:
+  - Persistent storage gate: authoritative Google Drive API v3 storageQuota.
+    The FUSE mount at /content/drive is NOT the account quota.
+  - Local disk gate: only checked for temporary chunk buffer (~3 GiB max per shard).
+    The full 399.79 GiB model must NEVER be required on local Colab NVMe.
+  - Target path: /content/drive/MyDrive/AI - Google Drive/GLM-5.2/model
+    (backed by Google Drive, not local NVMe)
+
 Priority Ordering:
 1. config.json
 2. generation_config.json
@@ -46,6 +54,23 @@ except ImportError:
     Progress = None
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB streaming chunks
+
+# Paths that indicate the target is a Google Drive FUSE mount, not local NVMe
+DRIVE_MOUNT_PREFIXES = (
+    "/content/drive/",
+    "/gdrive/",
+    "/mnt/drive/",
+)
+
+
+def is_drive_path(path: str) -> bool:
+    """Return True if the path is a Google Drive FUSE mount path, not local NVMe.
+    Uses raw string prefix matching to avoid platform-specific os.path.abspath
+    mangling of Unix paths when running on Windows.
+    """
+    # Normalise to forward slashes; do NOT call abspath (breaks /content/* on Windows)
+    normalized = path.replace("\\", "/")
+    return any(normalized.startswith(p) for p in DRIVE_MOUNT_PREFIXES)
 
 
 def get_file_priority_key(filename: str) -> Tuple[int, str]:
@@ -144,11 +169,12 @@ def download_file_resumable(
     """
     Download a single file with chunk-level resumption and atomic rename.
     Writes to target_path + '.tmp' until completed and validated.
+    Preserves existing completed files and resumes partial .tmp downloads.
     """
     temp_path = target_path + ".tmp"
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     
-    # If final file already exists and size matches, skip
+    # If final file already exists and size matches, skip (preserve valid files)
     if os.path.exists(target_path):
         current_sz = os.path.getsize(target_path)
         if expected_size and current_sz == expected_size:
@@ -156,10 +182,12 @@ def download_file_resumable(
                 console.print(f"[green][OK] {os.path.basename(target_path)} already exists and is complete ({current_sz:,} bytes)[/green]")
             return True
             
-    # Check partial download state
+    # Check partial download state — resume from existing .tmp byte offset
     downloaded_bytes = 0
     if os.path.exists(temp_path):
         downloaded_bytes = os.path.getsize(temp_path)
+        if console and not progress:
+            console.print(f"[cyan]  Resuming {os.path.basename(target_path)} from byte {downloaded_bytes:,}[/cyan]")
         
     retry_count = 0
     while retry_count < max_retries:
@@ -218,6 +246,146 @@ def download_file_resumable(
     return False
 
 
+def get_capacity_report(
+    target_dir: str,
+    drive_service=None,
+    mock_about: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Build a structured capacity report with three independent sections:
+      1. Google Drive API account quota (authoritative persistent storage).
+      2. Colab local ephemeral NVMe capacity (temporary chunks only).
+      3. FUSE mount diagnostic (informational only — never used as account quota).
+
+    Returns a dict with all values and an overall gate_decision key.
+    """
+    # 1. Authoritative Google Drive API quota
+    drive_quota = {
+        "available": False,
+        "free_gb": None,
+        "limit_gb": None,
+        "usage_gb": None,
+        "is_unlimited": False,
+        "email": None,
+        "error": None
+    }
+    try:
+        if mock_about is not None:
+            about_data = mock_about
+        elif drive_service is not None:
+            about_data = drive_service.about().get(fields="storageQuota,user").execute()
+        else:
+            about_data = None
+
+        if about_data:
+            sq = about_data.get("storageQuota", {})
+            user = about_data.get("user", {})
+            raw_limit = sq.get("limit")
+            raw_usage = sq.get("usage", "0")
+            usage_bytes = int(raw_usage or 0)
+            drive_quota["email"] = user.get("emailAddress")
+            drive_quota["available"] = True
+            if raw_limit is None:
+                drive_quota["is_unlimited"] = True
+                drive_quota["usage_gb"] = round(usage_bytes / 1e9, 2)
+            else:
+                limit_bytes = int(raw_limit)
+                free_bytes = max(0, limit_bytes - usage_bytes)
+                drive_quota["limit_gb"] = round(limit_bytes / 1e9, 2)
+                drive_quota["usage_gb"] = round(usage_bytes / 1e9, 2)
+                drive_quota["free_gb"] = round(free_bytes / 1e9, 2)
+    except Exception as e:
+        drive_quota["error"] = str(e)
+
+    # 2. Colab local ephemeral NVMe (always /content, not the Drive FUSE mount)
+    local_capacity = {"free_gib": None, "total_gib": None, "error": None}
+    try:
+        _, _, local_free = shutil.disk_usage("/content")
+        _, local_total, _ = shutil.disk_usage("/content")
+        local_capacity["free_gib"] = round(local_free / (1024 ** 3), 2)
+        local_capacity["total_gib"] = round(local_total / (1024 ** 3), 2)
+    except Exception:
+        try:
+            _, _, local_free = shutil.disk_usage(".")
+            local_capacity["free_gib"] = round(local_free / (1024 ** 3), 2)
+        except Exception as e:
+            local_capacity["error"] = str(e)
+
+    # 3. FUSE mount diagnostic (target_dir — informational only)
+    fuse_diag = {"free_gib": None, "total_gib": None, "path": target_dir, "error": None}
+    fuse_probe_path = target_dir
+    while fuse_probe_path and not os.path.exists(fuse_probe_path):
+        fuse_probe_path = os.path.dirname(fuse_probe_path)
+    if fuse_probe_path and os.path.exists(fuse_probe_path):
+        try:
+            _, fuse_total, fuse_free = shutil.disk_usage(fuse_probe_path)
+            fuse_diag["free_gib"] = round(fuse_free / (1024 ** 3), 2)
+            fuse_diag["total_gib"] = round(fuse_total / (1024 ** 3), 2)
+        except Exception as e:
+            fuse_diag["error"] = str(e)
+
+    return {
+        "drive_api_quota": drive_quota,
+        "local_colab_disk": local_capacity,
+        "fuse_diagnostic": fuse_diag,
+        "target_is_drive_path": is_drive_path(target_dir)
+    }
+
+
+def evaluate_download_gate(
+    capacity: Dict[str, Any],
+    required_gb: float = 400.0,
+    recommended_gb: float = 450.0,
+    local_temp_gib: float = 3.0
+) -> Tuple[str, str]:
+    """
+    Evaluate download feasibility.
+
+    Gate 1 (authoritative): Google Drive API free_gb >= required_gb.
+    Gate 2 (local temp):     Only if target is NOT a Drive path —
+                             local NVMe must have at least local_temp_gib for chunk buffer.
+    FUSE capacity is NEVER used as a gate.
+
+    Returns (status, reason).
+    """
+    dq = capacity.get("drive_api_quota", {})
+    target_is_drive = capacity.get("target_is_drive_path", True)
+
+    # Gate 1: Drive API quota
+    if dq.get("is_unlimited"):
+        drive_gate = "PASS"
+        drive_reason = "Google Drive account has unlimited/unmetered quota."
+    elif dq.get("free_gb") is not None:
+        free_gb = dq["free_gb"]
+        if free_gb >= recommended_gb:
+            drive_gate = "PASS"
+            drive_reason = f"Google Drive API: {free_gb:,.2f} GB free >= recommended {recommended_gb:.2f} GB threshold."
+        elif free_gb >= required_gb:
+            drive_gate = "PASS_LOW_MARGIN"
+            drive_reason = f"Google Drive API: {free_gb:,.2f} GB free >= required {required_gb:.2f} GB (below recommended {recommended_gb:.2f} GB)."
+        else:
+            drive_gate = "FAIL"
+            drive_reason = f"Google Drive API: {free_gb:,.2f} GB free is BELOW required {required_gb:.2f} GB. Download blocked."
+    else:
+        drive_gate = "UNKNOWN"
+        drive_reason = "Google Drive API quota could not be determined. Authentication may be required."
+
+    if drive_gate == "FAIL":
+        return ("NO-GO", drive_reason)
+
+    # Gate 2: Local temp buffer — only relevant when downloading to local disk
+    if not target_is_drive:
+        local = capacity.get("local_colab_disk", {})
+        local_free = local.get("free_gib", 0.0) or 0.0
+        if local_free < local_temp_gib:
+            return ("NO-GO", f"Local Colab NVMe has only {local_free:.2f} GiB free (need {local_temp_gib:.2f} GiB temp buffer for non-Drive target).")
+
+    # All gates passed
+    if drive_gate == "PASS_LOW_MARGIN":
+        return ("GO_WITH_LOW_MARGIN", drive_reason)
+    return ("GO", drive_reason)
+
+
 def run_downloader(
     repo_id: str,
     target_dir: str,
@@ -225,41 +393,109 @@ def run_downloader(
     revision: str = "main",
     verify_only: bool = False,
     max_retries: int = 5,
-    min_free_gib: float = 400.0
+    required_gb: float = 400.0,
+    recommended_gb: float = 450.0,
+    local_temp_gib: float = 3.0,
+    drive_service=None,
+    mock_capacity: Optional[Dict[str, Any]] = None,
+    # Legacy parameter alias kept for backward compatibility
+    min_free_gib: Optional[float] = None
 ) -> Dict[str, Any]:
-    """Execute prioritized download orchestration for all model components in repository."""
+    """
+    Execute prioritized download orchestration for all model components.
+
+    Capacity checks:
+      - Authoritative gate: Google Drive API account quota (not FUSE).
+      - Local temp gate: only applied when target is NOT a Drive mount path.
+      - FUSE diagnostic: reported separately, never used as a gate.
+    """
     os.makedirs(target_dir, exist_ok=True)
     manifest_file = os.path.join(target_dir, "download_manifest.json")
-    
-    files = get_repo_file_manifest(repo_id, token, revision)
-    
-    # Pre-download storage capacity check
-    if not verify_only:
-        try:
-            _, _, free_bytes = shutil.disk_usage(target_dir)
-            free_gib = free_bytes / (1024 ** 3)
-            if free_gib < min_free_gib and console:
-                console.print(f"[bold red]! Capacity Gate Alert: Free space ({free_gib:.2f} GiB) is below required ({min_free_gib:.2f} GiB)[/bold red]")
-        except Exception:
-            pass
 
+    files = get_repo_file_manifest(repo_id, token, revision)
     total_bytes = sum(f.get("size") or 0 for f in files)
-    
+
+    # Capacity report (three independent sections)
+    if mock_capacity is not None:
+        capacity = mock_capacity
+    else:
+        capacity = get_capacity_report(target_dir, drive_service=drive_service)
+
+    gate_status, gate_reason = evaluate_download_gate(
+        capacity,
+        required_gb=required_gb,
+        recommended_gb=recommended_gb,
+        local_temp_gib=local_temp_gib
+    )
+
+    dq = capacity.get("drive_api_quota", {})
+    local = capacity.get("local_colab_disk", {})
+    fuse = capacity.get("fuse_diagnostic", {})
+    target_is_drive = capacity.get("target_is_drive_path", True)
+
+    if console:
+        # Report three sections clearly
+        console.print("\n[bold cyan]=== Storage Capacity Report ===[/bold cyan]")
+        console.print(f"[bold]Target Directory:[/bold]         {target_dir}")
+        console.print(f"[bold]Target Is Drive Mount:[/bold]    {target_is_drive}")
+        console.print()
+        console.print("[bold cyan]Google Drive Account Quota (Authoritative):[/bold cyan]")
+        if dq.get("is_unlimited"):
+            console.print("  Quota: Unlimited / Unmetered")
+        elif dq.get("free_gb") is not None:
+            console.print(f"  Total Plan:        {dq.get('limit_gb', 'N/A'):,} GB")
+            console.print(f"  Used:              {dq.get('usage_gb', 'N/A'):,} GB")
+            console.print(f"  [bold]Available Free:    {dq['free_gb']:,.2f} GB[/bold]")
+        else:
+            console.print(f"  Status: Unavailable ({dq.get('error', 'unknown')})")
+        console.print(f"  Required:          >= {required_gb:.2f} GB")
+        console.print(f"  Drive Gate:        [{'green' if 'GO' in gate_status else 'red'}]{gate_status}[/{'green' if 'GO' in gate_status else 'red'}]")
+        console.print()
+        console.print("[bold yellow]Colab Local Ephemeral NVMe (Temp Chunks Only):[/bold yellow]")
+        console.print(f"  Local Free:        {local.get('free_gib', 'N/A')} GiB")
+        console.print(f"  Local Total:       {local.get('total_gib', 'N/A')} GiB")
+        console.print(f"  Required Temp:     {local_temp_gib:.2f} GiB (per-chunk buffer only)")
+        console.print(f"  Full model staged locally: NO (model downloads directly to Drive)")
+        console.print()
+        console.print("[bold yellow]FUSE Mount Diagnostic (Informational Only — NOT account quota):[/bold yellow]")
+        if fuse.get("free_gib") is not None:
+            console.print(f"  FUSE Free:         {fuse['free_gib']:.2f} GiB  [Note: Colab FUSE virtual overlay, not Drive quota]")
+            console.print(f"  FUSE Total:        {fuse['total_gib']:.2f} GiB")
+        else:
+            console.print("  FUSE: Not accessible")
+        console.print()
+
+    is_go = gate_status in ("GO", "GO_WITH_LOW_MARGIN")
+
+    if not verify_only and not is_go:
+        if console:
+            console.print(f"[bold red]! Download Blocked: {gate_reason}[/bold red]")
+
     results = {
         "repo_id": repo_id,
         "target_dir": os.path.abspath(target_dir),
+        "target_is_drive_path": target_is_drive,
         "total_files": len(files),
         "total_bytes": total_bytes,
         "total_gib": round(total_bytes / (1024 ** 3), 2),
+        "capacity_gate_status": gate_status,
+        "capacity_gate_reason": gate_reason,
+        "drive_api_quota": dq,
+        "local_colab_disk": local,
+        "fuse_diagnostic_note": "FUSE values reflect Colab virtual container overlay, NOT Google Drive account quota.",
         "downloaded": 0,
         "skipped": 0,
         "failed": 0,
         "start_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "files": []
     }
-    
+
+    if not verify_only and not is_go:
+        results["all_files_ready"] = False
+        return results
+
     if console:
-        console.print(f"\n[bold cyan]Starting prioritized download for {repo_id} ({len(files)} files, {results['total_gib']} GiB)[/bold cyan]")
+        console.print(f"[bold cyan]Starting prioritized download for {repo_id} ({len(files)} files, {results['total_gib']} GiB)[/bold cyan]")
         console.print(f"Target Directory: [yellow]{target_dir}[/yellow]\n")
 
     for idx, f_info in enumerate(files, 1):
@@ -301,7 +537,7 @@ def run_downloader(
             continue
             
         if console:
-            console.print(f"[{idx}/{len(files)}] [bold yellow]Downloading {fname}...[/bold yellow] (Expected: {exp_sz:,} B)")
+            console.print(f"[{idx}/{len(files)}] [bold yellow]Downloading {fname}...[/bold yellow] (Expected: {exp_sz:,} B)" if exp_sz else f"[{idx}/{len(files)}] [bold yellow]Downloading {fname}...[/bold yellow]")
 
         start_t = time.perf_counter()
         success = download_file_resumable(
@@ -346,24 +582,38 @@ def main():
                         help="Hugging Face access token")
     parser.add_argument("--verify-only", action="store_true",
                         help="Only verify existing files against remote metadata without downloading")
-    parser.add_argument("--min-free-gb", type=float, default=400.0,
-                        help="Minimum required free storage in GB before downloading")
+    parser.add_argument("--required-gb", type=float, default=400.0,
+                        help="Minimum required Google Drive account quota in GB (default: 400.0)")
+    parser.add_argument("--recommended-gb", type=float, default=450.0,
+                        help="Recommended Google Drive account quota in GB (default: 450.0)")
+    parser.add_argument("--local-temp-gib", type=float, default=3.0,
+                        help="Minimum local NVMe temp buffer per chunk in GiB (default: 3.0, only applies to non-Drive targets)")
     parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    # Legacy alias kept for backward compatibility
+    parser.add_argument("--min-free-gb", type=float, default=None,
+                        help="[Deprecated] Use --required-gb instead")
     args = parser.parse_args()
+
+    # Honor legacy --min-free-gb if provided
+    required_gb = args.required_gb
+    if args.min_free_gb is not None:
+        required_gb = args.min_free_gb
 
     results = run_downloader(
         repo_id=args.repo,
         target_dir=args.target_dir,
         token=args.token,
         verify_only=args.verify_only,
-        min_free_gib=args.min_free_gb
+        required_gb=required_gb,
+        recommended_gb=args.recommended_gb,
+        local_temp_gib=args.local_temp_gib
     )
 
     if args.json:
         print(json.dumps(results, indent=2))
     elif console:
         status_color = "green" if results.get("all_files_ready") else "yellow"
-        console.print(f"\n[{status_color}]Model processing finished for {args.repo}. Manifest saved at {os.path.join(args.target_dir, 'download_manifest.json')}[/{status_color}]")
+        console.print(f"\n[{status_color}]Model processing finished for {args.repo}. Gate: {results.get('capacity_gate_status')}[/{status_color}]")
 
     sys.exit(0 if results.get("all_files_ready") else 1)
 

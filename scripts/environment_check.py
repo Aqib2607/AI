@@ -15,13 +15,13 @@ import argparse
 from typing import Dict, Any
 
 try:
-    import psutil
+    import psutil  # type: ignore
 except ImportError:
     psutil = None
 
 try:
-    from rich.console import Console
-    from rich.table import Table
+    from rich.console import Console  # type: ignore
+    from rich.table import Table      # type: ignore
     console = Console()
 except ImportError:
     console = None

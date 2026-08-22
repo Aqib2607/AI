@@ -13,8 +13,8 @@ import argparse
 from typing import Dict, Any
 
 try:
-    from rich.console import Console
-    from rich.panel import Panel
+    from rich.console import Console  # type: ignore
+    from rich.panel import Panel      # type: ignore
     console = Console()
 except ImportError:
     console = None

@@ -13,7 +13,7 @@ import requests
 from typing import Dict, Any, Optional
 
 try:
-    from rich.console import Console
+    from rich.console import Console  # type: ignore
     console = Console()
 except ImportError:
     console = None

@@ -14,14 +14,14 @@ import requests
 from typing import Dict, Any, List, Optional
 
 try:
-    from huggingface_hub import HfApi, hf_hub_url
+    from huggingface_hub import HfApi, hf_hub_url  # type: ignore
 except ImportError:
     HfApi = None
     hf_hub_url = None
 
 try:
-    from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn
-    from rich.console import Console
+    from rich.progress import Progress, TextColumn, BarColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn  # type: ignore
+    from rich.console import Console  # type: ignore
     console = Console()
 except ImportError:
     console = None

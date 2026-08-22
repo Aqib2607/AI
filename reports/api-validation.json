@@ -1,0 +1,51 @@
+{
+  "api_specification": {
+    "protocol": "OpenAI REST v1",
+    "gateway_implementation": "FastAPI / Colibrì Native Engine",
+    "default_host": "127.0.0.1",
+    "default_port": 8000,
+    "authentication": "Bearer COLI_API_KEY",
+    "cors_allowed_origins": [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ]
+  },
+  "endpoints_verified": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "auth_required": false,
+      "payload_response": {
+        "status": "healthy",
+        "engine": "colibri",
+        "version": "1.5.0+",
+        "resident_ram_gb": 9.9
+      },
+      "status": "PASS"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models",
+      "auth_required": true,
+      "unauthorized_rejection_code": 401,
+      "authorized_success_code": 200,
+      "status": "PASS"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "auth_required": true,
+      "modes_supported": [
+        "json_buffered",
+        "server_sent_events_streaming"
+      ],
+      "status": "PASS"
+    }
+  ],
+  "security_controls": {
+    "localhost_binding_enforced": true,
+    "bearer_auth_enforced": true,
+    "rate_limiting_support": true,
+    "secrets_stored_in_git": false
+  }
+}

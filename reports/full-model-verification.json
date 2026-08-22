@@ -1,0 +1,35 @@
+{
+  "verification_status": "READY_SPECIFICATION_VALIDATED",
+  "model_directory": "/content/drive/MyDrive/AI - Google Drive/GLM-5.2/model",
+  "expected_total_shards": 142,
+  "expected_regular_shards": 141,
+  "expected_mtp_shards": 1,
+  "expected_total_bytes": 429276218793,
+  "header_parsing_protocol": {
+    "format": "safetensors_json_header_v1",
+    "prefix_length_bytes": 8,
+    "byte_order": "little_endian_uint64",
+    "payload_loaded_to_ram": false
+  },
+  "required_artifacts": {
+    "metadata": [
+      "config.json",
+      "generation_config.json"
+    ],
+    "tokenizer": [
+      "tokenizer.json",
+      "tokenizer_config.json"
+    ],
+    "speculative_head": [
+      "out-mtp-00000.safetensors"
+    ],
+    "shards": [
+      "out-00000.safetensors through out-00140.safetensors"
+    ]
+  },
+  "colibri_compatibility": {
+    "quantization": "grouped-int4-gs64",
+    "mtp_head_precision": "int8",
+    "minimum_engine_version": "v1.5.0+"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "inference_pipeline": {
+    "engine": "Colibrì v1.5.0+ (Pure C, OpenMP)",
+    "model": "mastouri/GLM-5.2-colibri-int4-g64-with-int8-mtp",
+    "architecture": "ChatGLM-MoE (744B total, ~40B active)",
+    "quantization": "Grouped INT4 (gs=64) with INT8 MTP",
+    "storage_mode": "Hybrid Local NVMe Warm Staging + Google Drive FUSE Mirror (COLI_DISK_WEIGHTS=9,1)"
+  },
+  "runtime_parameters": {
+    "temperature": 0.0,
+    "max_tokens": 32,
+    "stream": false,
+    "repin": 0,
+    "threads": "ARCH_NATIVE_AUTO"
+  },
+  "standardized_evaluation_prompts": [
+    {
+      "id": "prompt_1_constraint",
+      "prompt": "Hello. Respond with exactly one sentence.",
+      "category": "instruction_following"
+    },
+    {
+      "id": "prompt_2_technical",
+      "prompt": "Explain recursion in simple terms.",
+      "category": "conceptual_explanation"
+    },
+    {
+      "id": "prompt_3_code",
+      "prompt": "Write a Python function that reverses a string.",
+      "category": "code_generation"
+    },
+    {
+      "id": "prompt_4_context",
+      "prompt": "Explain Laravel middleware in five sentences.",
+      "category": "framework_domain_knowledge"
+    },
+    {
+      "id": "prompt_5_structured_json",
+      "prompt": "Return JSON containing the keys name and status.",
+      "category": "structured_data_emission"
+    }
+  ],
+  "telemetry_metrics_captured": [
+    "model_startup_seconds",
+    "time_to_first_token_seconds",
+    "tokens_per_second",
+    "total_generation_seconds",
+    "ram_working_set_gb",
+    "cpu_utilization_percent",
+    "nvme_throughput_mb_s",
+    "drive_fuse_throughput_mb_s"
+  ]
+}

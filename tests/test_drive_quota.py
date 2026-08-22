@@ -171,7 +171,12 @@ def test_target_folder_validation():
 
 
 def test_wrong_target_folder_rejected():
-    """Test folder validation fails when name is wrong or file is not a folder."""
+    """
+    Test folder validation with name mismatch vs wrong MIME type.
+    - Name mismatch: informational only, does NOT fail validation (folder ID is authoritative).
+    - Wrong MIME type: hard failure (the resource is not a folder at all).
+    """
+    # Name mismatch: valid because folder ID, MIME, and trashed checks all pass
     mock_wrong_name = {
         "id": TARGET_FOLDER_ID,
         "name": "Wrong Folder Name",
@@ -179,8 +184,12 @@ def test_wrong_target_folder_rejected():
         "trashed": False
     }
     res_wrong_name = validate_target_folder(mock_response=mock_wrong_name)
-    assert res_wrong_name["valid"] is False
+    assert res_wrong_name["valid"] is True  # ID+MIME+not-trashed passes
+    assert res_wrong_name["name_matches"] is False
+    assert res_wrong_name["name_mismatch_note"] is not None
+    assert "INFORMATIONAL" in res_wrong_name["name_mismatch_note"]
 
+    # Wrong MIME type: hard failure -- resource is not a Google Drive folder
     mock_not_a_folder = {
         "id": TARGET_FOLDER_ID,
         "name": TARGET_FOLDER_NAME,
@@ -189,6 +198,7 @@ def test_wrong_target_folder_rejected():
     }
     res_not_folder = validate_target_folder(mock_response=mock_not_a_folder)
     assert res_not_folder["valid"] is False
+    assert "MIME type" in res_not_folder["error"]
 
 
 def test_authenticated_account_identity():

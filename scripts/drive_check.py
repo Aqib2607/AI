@@ -182,16 +182,24 @@ def validate_target_folder(
     mock_list_response: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Validate target Google Drive folder existence, mimeType, parents, and ownership.
-    1. Primary Lookup: Direct files().get(fileId=folder_id, supportsAllDrives=True).
-    2. Fallback Diagnostic Lookup: Narrow list(q="name='AI - Google Drive' and ...", supportsAllDrives=True).
-    3. Exposes exact HTTP status, error message, and metadata without hiding details.
+    Validate target Google Drive folder using the folder ID as the authoritative identifier.
+
+    Authoritative gates (required for PASS):
+      - Folder ID resolves via Drive API (no 404 / 403)
+      - mimeType == application/vnd.google-apps.folder
+      - Folder is not in Trash
+
+    Non-blocking (INFORMATIONAL only — never causes FAIL):
+      - Configured display name vs. API-returned folder name
+        Drive folder names can differ from configured labels without affecting the folder's identity.
+
+    Fallback: if direct lookup fails, performs a narrow name-scoped list() for diagnostics only.
     """
     folder_data = mock_response
     direct_lookup_error = None
     http_status = None
 
-    # 1. Primary Direct Lookup by folder_id
+    # 1. Primary Direct Lookup by folder_id (authoritative)
     if folder_data is None and service is not None:
         try:
             folder_data = service.files().get(
@@ -201,7 +209,6 @@ def validate_target_folder(
             ).execute()
         except Exception as e:
             direct_lookup_error = str(e)
-            # Try extracting HTTP status from googleapiclient.errors.HttpError
             if hasattr(e, "resp") and hasattr(e.resp, "status"):
                 http_status = e.resp.status
             elif hasattr(e, "status_code"):
@@ -229,36 +236,50 @@ def validate_target_folder(
         except Exception as e:
             discovery_error = f"Fallback folder discovery failed: {str(e)}"
 
-    # 3. Analyze direct lookup results
+    # 3. Analyze direct lookup — folder ID is authoritative identifier
     if folder_data is not None:
-        name = folder_data.get("name")
+        api_name = folder_data.get("name")
         mime_type = folder_data.get("mimeType")
         trashed = folder_data.get("trashed", False)
         parents = folder_data.get("parents", [])
         drive_id = folder_data.get("driveId")
         owners = [o.get("emailAddress") for o in folder_data.get("owners", []) if isinstance(o, dict)]
+        resolved_id = folder_data.get("id", folder_id)
 
+        # Authoritative gates — these cause FAIL
         is_folder = (mime_type == "application/vnd.google-apps.folder")
-        name_matches = (name == expected_name)
         not_trashed = (not trashed)
-        id_matches = (folder_data.get("id") == folder_id)
+        id_matches = (resolved_id == folder_id)
+        is_valid = is_folder and not_trashed and id_matches
 
-        is_valid = is_folder and name_matches and not_trashed and id_matches
+        # Informational only — does NOT cause FAIL
+        name_matches = (api_name == expected_name)
+        name_mismatch_note = None
+        if not name_matches:
+            name_mismatch_note = (
+                f"INFORMATIONAL: Configured display name '{expected_name}' differs from "
+                f"API-returned folder name '{api_name}'. "
+                f"The folder ID {folder_id} is authoritative and has been confirmed accessible."
+            )
+
         error_msg = None
         if not is_valid:
             reasons = []
-            if not is_folder: reasons.append(f"MIME type '{mime_type}' != 'application/vnd.google-apps.folder'")
-            if not name_matches: reasons.append(f"Folder name '{name}' != expected '{expected_name}'")
-            if trashed: reasons.append("Folder is in Drive Trash")
-            if not id_matches: reasons.append(f"Folder ID '{folder_data.get('id')}' != '{folder_id}'")
+            if not is_folder:
+                reasons.append(f"MIME type '{mime_type}' is not 'application/vnd.google-apps.folder'")
+            if trashed:
+                reasons.append("Folder is in Drive Trash")
+            if not id_matches:
+                reasons.append(f"Resolved ID '{resolved_id}' does not match configured ID '{folder_id}'")
             error_msg = "; ".join(reasons)
 
         return {
             "valid": is_valid,
             "api_lookup_status": "PASS" if is_valid else "FAILED",
-            "folder_id": folder_data.get("id", folder_id),
+            "folder_id": resolved_id,
             "configured_folder_id": folder_id,
-            "folder_name": name,
+            "configured_folder_name": expected_name,
+            "folder_name": api_name,
             "mime_type": mime_type,
             "trashed": trashed,
             "parents": parents,
@@ -266,26 +287,35 @@ def validate_target_folder(
             "owners": owners,
             "is_folder": is_folder,
             "name_matches": name_matches,
+            "name_mismatch_note": name_mismatch_note,
             "folder_id_match": "PASS" if id_matches else "FAIL",
             "http_status": 200,
             "error": error_msg,
-            "discovered_candidate": None
+            "discovered_candidate": None,
+            "discovery_error": None
         }
 
-    # 4. If direct lookup failed, construct diagnostic response
+    # 4. Direct lookup failed — construct diagnostic response
     discovered_id = discovered_candidate.get("id") if discovered_candidate else None
     discovered_name = discovered_candidate.get("name") if discovered_candidate else None
-    discovered_owners = [o.get("emailAddress") for o in discovered_candidate.get("owners", []) if isinstance(o, dict)] if discovered_candidate else []
+    discovered_owners = (
+        [o.get("emailAddress") for o in discovered_candidate.get("owners", []) if isinstance(o, dict)]
+        if discovered_candidate else []
+    )
 
-    error_summary = direct_lookup_error or "Folder lookup failed"
+    error_summary = direct_lookup_error or "Folder lookup failed (no API service available)"
     if discovered_candidate:
-        error_summary += f" | Note: An exact-name folder '{discovered_name}' was discovered with ID '{discovered_id}' (Owners: {discovered_owners})."
+        error_summary += (
+            f" | Diagnostic: A folder named '{discovered_name}' was found with ID '{discovered_id}' "
+            f"(Owners: {discovered_owners}). Verify whether this is the intended target."
+        )
 
     return {
         "valid": False,
         "api_lookup_status": "FAILED",
         "folder_id": folder_id,
         "configured_folder_id": folder_id,
+        "configured_folder_name": expected_name,
         "folder_name": None,
         "mime_type": None,
         "trashed": None,
@@ -294,6 +324,7 @@ def validate_target_folder(
         "owners": [],
         "is_folder": False,
         "name_matches": False,
+        "name_mismatch_note": None,
         "folder_id_match": "MATCH_CONFIRMED" if (discovered_id == folder_id) else "MISMATCH" if discovered_id else "UNKNOWN",
         "http_status": http_status,
         "error": error_summary,
@@ -522,12 +553,15 @@ def check_drive_storage(
         "storage_gate_status": gate_status,
         "storage_gate_reason": gate_reason,
         "api_folder_lookup": folder_info.get("api_lookup_status", "UNKNOWN"),
+        "configured_folder_name": TARGET_FOLDER_NAME,
         "api_folder_name": folder_info.get("folder_name"),
         "api_folder_mime_type": folder_info.get("mime_type"),
         "api_folder_owner": folder_info.get("owners", []),
         "api_folder_parents": folder_info.get("parents", []),
         "api_folder_trash_state": "Trashed" if folder_info.get("trashed") else "Active" if folder_info.get("trashed") is False else "Unknown",
         "folder_id_match": folder_info.get("folder_id_match", "UNKNOWN"),
+        "folder_name_match": "PASS" if folder_info.get("name_matches") else "INFORMATIONAL",
+        "folder_name_mismatch_note": folder_info.get("name_mismatch_note"),
         "folder_validation_status": "PASS" if folder_info.get("valid") else "FAILED",
         "folder_validation_error": folder_info.get("error"),
         "folder_discovered_candidate": folder_info.get("discovered_candidate"),

@@ -159,16 +159,24 @@ def test_target_folder_valid_metadata():
 
 
 def test_target_folder_wrong_name_rejected():
-    """Verify folder validation fails when folder name differs from expected."""
-    mock_wrong_name = {
+    """Verify that a display name mismatch is informational only and does NOT fail validation.
+    The folder ID is authoritative: if it resolves, MIME type is correct, and it is not trashed,
+    validation passes regardless of the configured vs. actual display name."""
+    mock_different_name = {
         "id": TARGET_FOLDER_ID,
         "name": "Different Folder",
         "mimeType": "application/vnd.google-apps.folder",
         "trashed": False
     }
-    res = validate_target_folder(mock_response=mock_wrong_name)
-    assert res["valid"] is False
-    assert "Folder name 'Different Folder' != expected" in res["error"]
+    res = validate_target_folder(mock_response=mock_different_name)
+    # Folder ID resolved, MIME type correct, not trashed → valid = True
+    assert res["valid"] is True
+    # Name mismatch is flagged as informational, never a hard failure
+    assert res["name_matches"] is False
+    assert res["name_mismatch_note"] is not None
+    assert "INFORMATIONAL" in res["name_mismatch_note"]
+    assert "Different Folder" in res["name_mismatch_note"]
+    assert res["folder_id_match"] == "PASS"
 
 
 def test_target_folder_trashed_rejected():
@@ -227,3 +235,38 @@ def test_target_folder_multiple_exact_name_candidates():
     res = validate_target_folder(mock_response=None, mock_list_response=mock_list)
     assert res["discovery_error"] is not None
     assert "Multiple (2) folders named" in res["discovery_error"]
+
+
+def test_regression_api_name_ai_vs_configured_ai_google_drive():
+    """
+    Regression test for the exact observed runtime scenario:
+      Configured folder name: 'AI - Google Drive'
+      Configured folder ID:   11BdZx7pI2XyEmiJjpZJjTCIX1V41vKhd
+      API-returned folder name: 'AI'
+
+    The folder ID lookup must PASS because:
+      - ID resolves correctly
+      - MIME type is application/vnd.google-apps.folder
+      - Folder is not trashed
+    The name mismatch must be INFORMATIONAL only, never a hard failure.
+    """
+    mock_folder = {
+        "id": TARGET_FOLDER_ID,
+        "name": "AI",  # Actual Drive API name observed at runtime
+        "mimeType": "application/vnd.google-apps.folder",
+        "trashed": False,
+        "owners": [{"emailAddress": EXPECTED_ACCOUNT}],
+        "parents": ["root"]
+    }
+    res = validate_target_folder(mock_response=mock_folder)
+
+    assert res["valid"] is True, "Folder must pass when ID, MIME, and trashed checks pass"
+    assert res["api_lookup_status"] == "PASS"
+    assert res["folder_name"] == "AI"
+    assert res["name_matches"] is False
+    assert res["name_mismatch_note"] is not None
+    assert "INFORMATIONAL" in res["name_mismatch_note"]
+    assert "'AI - Google Drive'" in res["name_mismatch_note"]
+    assert "'AI'" in res["name_mismatch_note"]
+    assert res["folder_id_match"] == "PASS"
+    assert res["error"] is None
